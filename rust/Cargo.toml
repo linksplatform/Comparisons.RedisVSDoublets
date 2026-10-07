@@ -1,0 +1,8 @@
+[package]
+name = "redis-vs-doublets"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+doublets = "=0.5.0"
+redis = { version = "=1.7.1", default-features = false, features = ["script"] }
