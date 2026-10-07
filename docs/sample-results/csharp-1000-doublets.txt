@@ -1,0 +1,15 @@
+# links: 100
+# background: 1000
+# samples: 10
+# cpu: AMD EPYC Processor (with IBPB)
+# date: 2026-10-07
+# commit: 745703252120ce2321961e423c626f4d28cb27fa
+# runtime: .NET SDK 10.0.112
+test Create/Doublets ... bench: 785400 ns/iter (+/- 80069)
+test Update/Doublets ... bench: 1200900 ns/iter (+/- 217113)
+test Delete/Doublets ... bench: 595600 ns/iter (+/- 344994)
+test Each_All/Doublets ... bench: 339750 ns/iter (+/- 1970394)
+test Each_Identity/Doublets ... bench: 60150 ns/iter (+/- 3721)
+test Each_Concrete/Doublets ... bench: 158200 ns/iter (+/- 7853)
+test Each_Outgoing/Doublets ... bench: 145550 ns/iter (+/- 11673)
+test Each_Incoming/Doublets ... bench: 128450 ns/iter (+/- 64979)

@@ -69,11 +69,47 @@ Generated content stays between the markers below. Every Doublets cell compares 
 Provenance includes server/library/runtime versions, CPU, commit, date and the CI run link (or a local run).
 
 <!-- results:start -->
+<!-- markdownlint-disable MD013 MD024 -->
+
 ### Rust
 
-_No results yet._
+#### Rust: 1,000 background links, 100 links per iteration
+
+_Median time of one iteration: 100 operations (Each All scans once). Redis 7.4.2 through redis 1.7.1; doublets 0.5.0. CPU AMD EPYC Processor (with IBPB), a local run on 2026-10-07. Runtime rustc 1.98.1 (48a229cea 2026-09-01) / rustc 1.98.1 (48a229cea 2026-09-01) (Redis / Doublets); 10 samples, 3 warm-ups. Commit `745703252120ce2321961e423c626f4d28cb27fa` / `745703252120ce2321961e423c626f4d28cb27fa`._
+
+| Operation | Redis | Doublets (in memory) |
+| --- | ---: | ---: |
+| Create | **10.3 ms** | 12.2 µs (≈ same) |
+| Update | **9.5 ms** | 52.4 µs (181× faster) |
+| Delete | **11.8 ms** | 25 µs (473× faster) |
+| Each All | **4.64 ms** | 8.49 µs (547× faster) |
+| Each Identity | **9.01 ms** | 1.65 µs (5,450× faster) |
+| Each Concrete | **8.79 ms** | 4.6 µs (1,910× faster) |
+| Each Outgoing | **8.48 ms** | 4.36 µs (≈ same) |
+| Each Incoming | **8.24 ms** | 7.77 µs (1,060× faster) |
+
+![Rust, 1,000 background links, 100 links per iteration, linear scale](docs/bench_rust_1000.png)
+![Rust, 1,000 background links, 100 links per iteration, log scale](docs/bench_rust_log_scale_1000.png)
 
 ### C#
 
-_No results yet._
+#### C#: 1,000 background links, 100 links per iteration
+
+_Median time of one iteration: 100 operations (Each All scans once). Redis 7.4.2 through StackExchange.Redis 3.3.1; Platform.Data.Doublets 0.18.1. CPU AMD EPYC Processor (with IBPB), a local run on 2026-10-07. Runtime .NET SDK 10.0.112 / .NET SDK 10.0.112 (Redis / Doublets); 10 samples, 3 warm-ups. Commit `745703252120ce2321961e423c626f4d28cb27fa` / `745703252120ce2321961e423c626f4d28cb27fa`._
+
+| Operation | Redis | Doublets (in memory) |
+| --- | ---: | ---: |
+| Create | **40 ms** | 785 µs (50.9× faster) |
+| Update | **42.7 ms** | 1.2 ms (35.6× faster) |
+| Delete | **56.2 ms** | 596 µs (94.3× faster) |
+| Each All | **6.96 ms** | 340 µs (20.5× faster) |
+| Each Identity | **55.2 ms** | 60.2 µs (918× faster) |
+| Each Concrete | **33.8 ms** | 158 µs (214× faster) |
+| Each Outgoing | **33.2 ms** | 146 µs (228× faster) |
+| Each Incoming | **42.7 ms** | 128 µs (332× faster) |
+
+![C#, 1,000 background links, 100 links per iteration, linear scale](docs/bench_csharp_1000.png)
+![C#, 1,000 background links, 100 links per iteration, log scale](docs/bench_csharp_log_scale_1000.png)
+
+<!-- markdownlint-restore -->
 <!-- results:end -->

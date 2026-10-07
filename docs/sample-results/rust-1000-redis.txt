@@ -1,0 +1,16 @@
+# links: 100
+# background: 1000
+# samples: 10
+# cpu: AMD EPYC Processor (with IBPB)
+# date: 2026-10-07
+# commit: 745703252120ce2321961e423c626f4d28cb27fa
+# runtime: rustc 1.98.1 (48a229cea 2026-09-01)
+# redis: 7.4.2
+test Create/Redis ... bench: 10326429 ns/iter (+/- 15206894)
+test Update/Redis ... bench: 9499597 ns/iter (+/- 1227928)
+test Delete/Redis ... bench: 11812714 ns/iter (+/- 11776503)
+test Each_All/Redis ... bench: 4639739 ns/iter (+/- 329339)
+test Each_Identity/Redis ... bench: 9012504 ns/iter (+/- 2820561)
+test Each_Concrete/Redis ... bench: 8785782 ns/iter (+/- 5039571)
+test Each_Outgoing/Redis ... bench: 8484926 ns/iter (+/- 12616712)
+test Each_Incoming/Redis ... bench: 8242960 ns/iter (+/- 362284)

@@ -1,0 +1,15 @@
+# links: 100
+# background: 1000
+# samples: 10
+# cpu: AMD EPYC Processor (with IBPB)
+# date: 2026-10-07
+# commit: 745703252120ce2321961e423c626f4d28cb27fa
+# runtime: rustc 1.98.1 (48a229cea 2026-09-01)
+test Create/Doublets ... bench: 12223 ns/iter (+/- 19451)
+test Update/Doublets ... bench: 52358 ns/iter (+/- 28693)
+test Delete/Doublets ... bench: 24992 ns/iter (+/- 2669)
+test Each_All/Doublets ... bench: 8486 ns/iter (+/- 3224)
+test Each_Identity/Doublets ... bench: 1653 ns/iter (+/- 39)
+test Each_Concrete/Doublets ... bench: 4604 ns/iter (+/- 199)
+test Each_Outgoing/Doublets ... bench: 4363 ns/iter (+/- 168)
+test Each_Incoming/Doublets ... bench: 7774 ns/iter (+/- 416)
