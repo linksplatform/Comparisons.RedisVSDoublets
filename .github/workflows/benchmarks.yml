@@ -1,0 +1,212 @@
+name: Benchmarks
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'rust/**'
+      - 'csharp/**'
+      - 'redis/**'
+      - 'scripts/**'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/benchmarks.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'rust/**'
+      - 'csharp/**'
+      - 'redis/**'
+      - 'scripts/**'
+      - 'rust-toolchain.toml'
+      - '.github/workflows/benchmarks.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: benchmarks-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  REDIS_URL: redis://127.0.0.1:6379
+  CARGO_TERM_COLOR: always
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  BENCHMARK_LINKS: ${{ github.event_name == 'pull_request' && '100' || '1000' }}
+  BENCHMARK_SAMPLES: ${{ github.event_name == 'pull_request' && '10' || '30' }}
+
+jobs:
+  test-rust:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7.4.2
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    defaults:
+      run:
+        working-directory: rust
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - run: cargo fmt --check
+      - run: cargo clippy --locked --release --all-targets -- -D warnings
+      - run: cargo test --locked --release -- --include-ignored
+
+  test-csharp:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    services:
+      redis:
+        image: redis:7.4.2
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    defaults:
+      run:
+        working-directory: csharp
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: csharp/global.json
+      - run: dotnet restore --locked-mode
+      - run: dotnet format --no-restore --verify-no-changes
+      - run: dotnet build -c Release --no-restore -warnaserror
+      - run: dotnet test -c Release --no-build --no-restore -- --timeout 2m
+
+  test-report:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r scripts/requirements.txt
+      - run: ruff check scripts
+      - run: ruff format --check scripts
+      - run: python3 -m unittest discover -s scripts -v
+
+  benchmark:
+    needs: [test-rust, test-csharp, test-report]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        language: [rust, csharp]
+        backend: [redis, doublets]
+        background: ${{ fromJSON(github.event_name == 'pull_request' && '[1000]' || '[10000,100000,1000000]') }}
+    # Each language/backend/size has a dedicated runner.
+    services:
+      redis:
+        image: redis:7.4.2
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      BENCHMARK_BACKEND: ${{ matrix.backend }}
+      BENCHMARK_BACKGROUND_LINKS: ${{ matrix.background }}
+    steps:
+      - uses: actions/checkout@v4
+      - if: matrix.language == 'rust'
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: '1.98.1'
+      - if: matrix.language == 'rust'
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+      - if: matrix.language == 'csharp'
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: csharp/global.json
+      - name: Disable Redis persistence
+        run: |
+          # Issue #1 requires an in-memory comparison. Configure through a client
+          # on the host; service container command arguments are not supported.
+          docker exec "${{ job.services.redis.id }}" redis-cli CONFIG SET save ''
+          docker exec "${{ job.services.redis.id }}" redis-cli CONFIG SET appendonly no
+      - name: Build Rust
+        if: matrix.language == 'rust'
+        run: cargo build --locked --release --manifest-path rust/Cargo.toml
+      - name: Build C#
+        if: matrix.language == 'csharp'
+        working-directory: csharp
+        run: |
+          dotnet restore --locked-mode
+          dotnet build -c Release --no-restore -warnaserror
+      - name: Benchmark
+        working-directory: ${{ matrix.language }}
+        env:
+          LANGUAGE: ${{ matrix.language }}
+          RESULT_FILE: ${{ matrix.language }}-${{ matrix.background }}-${{ matrix.backend }}.txt
+        run: |
+          set -o pipefail
+          {
+            ../scripts/benchmark_header.sh "$LANGUAGE"
+            if [ "$LANGUAGE" = rust ]; then
+              ./target/release/redis-vs-doublets
+            else
+              dotnet run -c Release --no-build --project RedisVSDoublets
+            fi
+          } | tee "$RESULT_FILE"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: bench-${{ matrix.language }}-${{ matrix.background }}-${{ matrix.backend }}
+          path: ${{ matrix.language }}/${{ matrix.language }}-${{ matrix.background }}-${{ matrix.backend }}.txt
+          if-no-files-found: error
+
+  report:
+    needs: benchmark
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.sha }}
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: bench-*
+          merge-multiple: true
+          path: results
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r scripts/requirements.txt
+      - name: Generate tables and charts
+        run: |
+          set -o pipefail
+          python3 scripts/benchmark_report.py results --readme README.md --charts docs | tee "$GITHUB_STEP_SUMMARY"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report
+          path: |
+            results
+            README.md
+            docs/bench_*.png
+      - name: Commit main results
+        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+        run: |
+          git config user.name LinksPlatformBencher
+          git config user.email linksplatform@gmail.com
+          git add README.md docs/bench_*.png
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update Redis benchmark results'
+            git push origin HEAD:main
+          fi
