@@ -1,0 +1,16 @@
+# links: 100
+# background: 1000
+# samples: 10
+# cpu: AMD EPYC Processor (with IBPB)
+# date: 2026-10-07
+# commit: 745703252120ce2321961e423c626f4d28cb27fa
+# runtime: .NET SDK 10.0.112
+# redis: 7.4.2
+test Create/Redis ... bench: 39966950 ns/iter (+/- 10091788)
+test Update/Redis ... bench: 42713500 ns/iter (+/- 18597733)
+test Delete/Redis ... bench: 56185550 ns/iter (+/- 20573182)
+test Each_All/Redis ... bench: 6958300 ns/iter (+/- 1640468)
+test Each_Identity/Redis ... bench: 55220100 ns/iter (+/- 50496475)
+test Each_Concrete/Redis ... bench: 33784150 ns/iter (+/- 26196041)
+test Each_Outgoing/Redis ... bench: 33181000 ns/iter (+/- 15389942)
+test Each_Incoming/Redis ... bench: 42656150 ns/iter (+/- 16065737)

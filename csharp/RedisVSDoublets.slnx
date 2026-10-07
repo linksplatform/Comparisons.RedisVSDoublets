@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="RedisVSDoublets/RedisVSDoublets.csproj" />
+  <Project Path="RedisVSDoublets.Tests/RedisVSDoublets.Tests.csproj" />
+</Solution>
