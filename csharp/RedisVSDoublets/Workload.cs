@@ -15,7 +15,7 @@ public static class Workload
                 for (ulong i = 0; i < links; i++) _sink = store.Create();
                 break;
             case 1:
-                for (ulong id = 1; id <= links; id++) store.Update(id, id, id % background + 1);
+                for (ulong id = 1; id <= links; id++) store.Update(id, id, (id % background) + 1);
                 break;
             case 2:
                 for (var id = background; id > background - links; id--) store.Delete(id);

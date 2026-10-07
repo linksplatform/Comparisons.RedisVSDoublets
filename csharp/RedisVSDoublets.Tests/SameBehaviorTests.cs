@@ -23,7 +23,7 @@ public sealed class SameBehaviorTests
             var expected = operation switch
             {
                 0 => Enumerable.Range(1, 25).Select(id => new Link((ulong)id, (ulong)id, (ulong)id)).ToArray(),
-                1 => points.Select(link => link.Id <= 5 ? new Link(link.Id, link.Id, link.Id % 20 + 1) : link).ToArray(),
+                1 => points.Select(link => link.Id <= 5 ? new Link(link.Id, link.Id, (link.Id % 20) + 1) : link).ToArray(),
                 2 => points.Take(15).ToArray(),
                 _ => points,
             };

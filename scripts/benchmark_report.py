@@ -139,75 +139,66 @@ def parse(text, path="<text>"):
     return times, metadata
 
 
-def load(directory):
-    """All results in `directory`: {(language, background): {"times", "metadata"}}."""
-    results = {}
-    for path in sorted(Path(directory).glob("*.txt")):
-        match = FILE_NAME.fullmatch(path.stem)
-        if (
-            not match
-            or match.group(1) not in LANGUAGES
-            or match.group(3) not in BACKENDS
-        ):
-            raise ValueError(
-                f"{path}: expected <{'|'.join(LANGUAGES)}>-<links>-<{'|'.join(BACKENDS)}>.txt"
-            )
-        language, background, backend = (
-            match.group(1),
-            int(match.group(2)),
-            match.group(3),
+def load_file(path):
+    match = FILE_NAME.fullmatch(path.stem)
+    if not match or match.group(1) not in LANGUAGES or match.group(3) not in BACKENDS:
+        raise ValueError(
+            f"{path}: expected <{'|'.join(LANGUAGES)}>-<links>-<{'|'.join(BACKENDS)}>.txt"
         )
-        times, metadata = parse(path.read_text(encoding="utf-8"), path)
-        expected = {
-            (operation, implementation)
-            for operation in OPERATIONS
-            for implementation, _, _ in BACKENDS[backend]
-        } - NOT_MEASURED
-        if set(times) != expected:
-            missing = sorted(expected - set(times))
-            unexpected = sorted(set(times) - expected)
-            raise ValueError(
-                f"{path}: missing results {missing}, unexpected results {unexpected}"
-            )
-        result = results.setdefault(
-            (language, background), {"times": {}, "metadata": {}}
+    language, background, backend = match.group(1), int(match.group(2)), match.group(3)
+    times, metadata = parse(path.read_text(encoding="utf-8"), path)
+    expected = {
+        (operation, implementation)
+        for operation in OPERATIONS
+        for implementation, _, _ in BACKENDS[backend]
+    } - NOT_MEASURED
+    if set(times) != expected:
+        missing = sorted(expected - set(times))
+        unexpected = sorted(set(times) - expected)
+        raise ValueError(
+            f"{path}: missing results {missing}, unexpected results {unexpected}"
         )
-        result["times"].update(times)
-        result["metadata"][backend] = metadata
-    if not results:
-        raise ValueError(f"no results found in {directory}/")
-    for (language, background), result in results.items():
-        missing = set(BACKENDS) - set(result["metadata"])
-        if missing:
-            raise ValueError(
-                f"{language}, {background} background links: no {', '.join(sorted(missing))} results"
-            )
+    return language, background, backend, times, metadata
+
+
+def validate_result(language, background, result):
+    missing = set(BACKENDS) - set(result["metadata"])
+    if missing:
+        raise ValueError(
+            f"{language}, {background} background links: no {', '.join(sorted(missing))} results"
+        )
+    links = links_per_iteration(result)
+    samples = {metadata.get("samples") for metadata in result["metadata"].values()}
+    if (
+        not 0 < links <= background
+        or len(samples) != 1
+        or None in samples
+        or int(next(iter(samples))) < 3
+    ):
+        raise ValueError(
+            f"{language}, {background}: invalid or mismatched workload metadata"
+        )
+    for metadata in result["metadata"].values():
+        if metadata.get("background") != str(background):
+            raise ValueError("background metadata differs from file name")
+        validate_provenance(metadata)
+    if not result["metadata"]["redis"].get("redis"):
+        raise ValueError("missing Redis server version")
+
+
+def validate_provenance(metadata):
+    for field in ("cpu", "date", "runtime", "commit"):
+        if not metadata.get(field):
+            raise ValueError(f"missing provenance: {field}")
+
+
+def validate_languages(results):
     sizes = [
         {background for lang, background in results if lang == language}
         for language in LANGUAGES
     ]
     if sizes[0] != sizes[1]:
         raise ValueError("Rust and C# must have the same background sizes")
-    for (language, background), result in results.items():
-        links = links_per_iteration(result)
-        samples = {metadata.get("samples") for metadata in result["metadata"].values()}
-        if (
-            not 0 < links <= background
-            or len(samples) != 1
-            or None in samples
-            or int(next(iter(samples))) < 3
-        ):
-            raise ValueError(
-                f"{language}, {background}: invalid or mismatched workload metadata"
-            )
-        for metadata in result["metadata"].values():
-            if metadata.get("background") != str(background):
-                raise ValueError("background metadata differs from file name")
-            for field in ("cpu", "date", "runtime", "commit"):
-                if not metadata.get(field):
-                    raise ValueError(f"missing provenance: {field}")
-        if not result["metadata"]["redis"].get("redis"):
-            raise ValueError("missing Redis server version")
     for background in sizes[0]:
         workload = {
             (
@@ -224,6 +215,23 @@ def load(directory):
             raise ValueError(
                 "languages/backends must use the same workload and source run"
             )
+
+
+def load(directory):
+    """All results in `directory`: {(language, background): {"times", "metadata"}}."""
+    results = {}
+    for path in sorted(Path(directory).glob("*.txt")):
+        language, background, backend, times, metadata = load_file(path)
+        result = results.setdefault(
+            (language, background), {"times": {}, "metadata": {}}
+        )
+        result["times"].update(times)
+        result["metadata"][backend] = metadata
+    if not results:
+        raise ValueError(f"no results found in {directory}/")
+    for (language, background), result in results.items():
+        validate_result(language, background, result)
+    validate_languages(results)
     return dict(
         sorted(
             results.items(),
