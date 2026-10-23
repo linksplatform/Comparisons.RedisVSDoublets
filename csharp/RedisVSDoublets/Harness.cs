@@ -92,34 +92,55 @@ public static class Harness
     }
 
     /// <summary>
-    /// Measures <paramref name="operation"/> on <paramref name="store"/>, which contains <see cref="Settings.BackgroundLinks"/>
-    /// background links (or keys, list items and set members). After every iteration <paramref name="undo"/> puts the store
-    /// back into the same state, so every iteration starts from the same data. Neither the background data nor the undo
-    /// are measured.
+    /// Measures the operation of <paramref name="work"/> on <paramref name="store"/>, which contains
+    /// <see cref="Settings.BackgroundLinks"/> background links (or keys, list items and set members). After every iteration
+    /// the undo of <paramref name="work"/> puts the store back into the same state, so every iteration starts from the same
+    /// data. Neither the background data nor the undo are measured.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The measured time starts before <see cref="IBenched.Begin"/> and ends after <see cref="IBenched.Commit"/>,
     /// so for Redis in transaction and pipeline modes it includes sending the queued commands and receiving all replies.
+    /// </para>
+    /// <para>
+    /// The benchmark is checked outside of the measured time, so a store that loses data or finds wrong results fails the
+    /// run instead of reporting a time: <paramref name="checkBackground"/> must accept the store before the first and after
+    /// the last iteration, and one iteration before the measurement must find <see cref="Work{TStore}.Expected"/>.
+    /// </para>
     /// </remarks>
-    public static Estimate Measure<TStore>(Sampling sampling, TStore store, Action<TStore> operation, Action<TStore> undo)
+    public static Estimate Measure<TStore>(Sampling sampling, TStore store, Work<TStore> work, Action<TStore, int> checkBackground)
         where TStore : IBenched
     {
-        store.Fork(Settings.BackgroundLinks);
+        var background = Settings.BackgroundLinks;
+        store.Fork(background);
         try
         {
-            return Measure(sampling, () =>
+            TimeSpan Iteration()
             {
                 var started = Stopwatch.GetTimestamp();
                 store.Begin();
-                operation(store);
+                work.Operation(store);
                 store.Commit();
                 var elapsed = Stopwatch.GetElapsedTime(started);
 
                 store.Begin();
-                undo(store);
+                work.Undo(store);
                 store.Commit();
                 return elapsed;
-            });
+            }
+
+            checkBackground(store, background);
+            var before = Found.Total;
+            Iteration();
+            var found = Found.Total - before;
+            if (found != work.Expected)
+            {
+                throw new InvalidOperationException($"An iteration found {found} instead of {work.Expected}.");
+            }
+            checkBackground(store, background);
+            var estimate = Measure(sampling, Iteration);
+            checkBackground(store, background);
+            return estimate;
         }
         finally
         {

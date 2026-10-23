@@ -20,6 +20,10 @@
 //! implemented. In the transaction and pipeline modes Redis reads the found
 //! links at the commit and passes them to its sink, which, like [`visit`],
 //! consumes them with [`black_box`].
+//!
+//! One unmeasured iteration of `Each_All` must find the links `1..=B`, and
+//! one of the other `Each_*` groups the links `1..=N` (counted by their number
+//! and the sum of their ids); the changes find nothing.
 
 use std::hint::black_box;
 
@@ -33,14 +37,14 @@ use redis_vs_doublets::{
     benchmark_links,
 };
 
-use super::{doublets_group, measure, read_only, redis_group};
+use super::{Checked, Found, SinkResults, doublets_group, measure, read_only, redis_group};
 
 /// Signature shared by all operations, so they can be passed around.
 type Operation<B> = fn(&mut BenchmarkGroup<WallTime>, &str, &mut B);
 
 /// The operation of every group of a store type, in the order in which they
 /// run.
-fn operations<B: Benched + Doublets<usize>>() -> [(&'static str, Operation<B>); 8] {
+fn operations<B: Checked + Doublets<usize>>() -> [(&'static str, Operation<B>); 8] {
     [
         ("Create", create),
         ("Delete", delete),
@@ -85,17 +89,72 @@ pub fn doublets(c: &mut Criterion) {
     }
 }
 
-/// Consumes every found link, so the compiler cannot skip reading it.
-fn visit(link: Link<usize>) -> Flow {
-    black_box(link);
+/// Consumes every found link, so the compiler cannot skip reading it, and
+/// adds it to `found`.
+fn visit(found: &mut Found, link: Link<usize>) -> Flow {
+    found.add(black_box(link).index as u64);
     Flow::Continue
 }
+
+/// Panics unless `store` contains exactly the point links `1..=background`.
+fn check_links<B: Doublets<usize>>(store: &B, background: usize) {
+    let mut links = Vec::with_capacity(background);
+    store.each(|link| {
+        links.push((link.index, link.source, link.target));
+        Flow::Continue
+    });
+    links.sort_unstable();
+    let points = (1..=background).map(|id| (id, id, id));
+    assert!(
+        links.iter().copied().eq(points),
+        "the store must contain exactly the point links 1..={background}, \
+         but it contains {} links",
+        links.len()
+    );
+}
+
+impl Checked for Redis<usize> {
+    fn count_sink(&mut self, results: Option<SinkResults>) {
+        match results {
+            Some(results) => self.set_sink(move |link| {
+                results
+                    .lock()
+                    .expect("sink results mutex is poisoned")
+                    .add(link.index as u64);
+            }),
+            None => self.set_sink(|link| {
+                black_box(link);
+            }),
+        }
+    }
+
+    fn check_background(&mut self, background: usize) -> redis_vs_doublets::Result<()> {
+        check_links(self, background);
+        Ok(())
+    }
+}
+
+/// Doublets stores pass all found links to the handlers.
+macro_rules! checked_doublets {
+    ($($store:ty),*) => {$(
+        impl Checked for $store {
+            fn count_sink(&mut self, _: Option<SinkResults>) {}
+
+            fn check_background(&mut self, background: usize) -> redis_vs_doublets::Result<()> {
+                check_links(self, background);
+                Ok(())
+            }
+        }
+    )*};
+}
+
+checked_doublets!(DoubletsUnitedVolatile, DoubletsSplitVolatile);
 
 fn any() -> usize {
     LinksConstants::<usize>::new().any
 }
 
-fn create<B: Benched + Doublets<usize>>(
+fn create<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -105,6 +164,7 @@ fn create<B: Benched + Doublets<usize>>(
         group,
         id,
         benched,
+        Found::default(),
         |store| {
             for _ in 0..links {
                 store.create_point()?;
@@ -120,7 +180,7 @@ fn create<B: Benched + Doublets<usize>>(
     );
 }
 
-fn update<B: Benched + Doublets<usize>>(
+fn update<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -130,6 +190,7 @@ fn update<B: Benched + Doublets<usize>>(
         group,
         id,
         benched,
+        Found::default(),
         |store| {
             for id in background - links + 1..=background {
                 store.update(id, 0, 0)?;
@@ -141,7 +202,7 @@ fn update<B: Benched + Doublets<usize>>(
     );
 }
 
-fn delete<B: Benched + Doublets<usize>>(
+fn delete<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -151,6 +212,7 @@ fn delete<B: Benched + Doublets<usize>>(
         group,
         id,
         benched,
+        Found::default(),
         |store| {
             for id in (background - links + 1..=background).rev() {
                 store.delete(id)?;
@@ -166,7 +228,7 @@ fn delete<B: Benched + Doublets<usize>>(
     );
 }
 
-fn each_all<B: Benched + Doublets<usize>>(
+fn each_all<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -175,16 +237,18 @@ fn each_all<B: Benched + Doublets<usize>>(
         group,
         id,
         benched,
+        Found::first(background_links()),
         |store| {
-            store.each(visit);
-            Ok(())
+            let mut found = Found::default();
+            store.each(|link| visit(&mut found, link));
+            Ok(found)
         },
         read_only,
     );
 }
 
 /// Measures `N` queries `each_by(query(id))` for the ids `1..=N`.
-fn each_by<B: Benched + Doublets<usize>>(
+fn each_by<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -195,17 +259,19 @@ fn each_by<B: Benched + Doublets<usize>>(
         group,
         id,
         benched,
+        Found::first(links),
         |store| {
+            let mut found = Found::default();
             for id in 1..=links {
-                store.each_by(query(id), visit);
+                store.each_by(query(id), |link| visit(&mut found, link));
             }
-            Ok(())
+            Ok(found)
         },
         read_only,
     );
 }
 
-fn each_identity<B: Benched + Doublets<usize>>(
+fn each_identity<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -214,7 +280,7 @@ fn each_identity<B: Benched + Doublets<usize>>(
     each_by(group, id, benched, |id| [id, any, any]);
 }
 
-fn each_concrete<B: Benched + Doublets<usize>>(
+fn each_concrete<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -223,7 +289,7 @@ fn each_concrete<B: Benched + Doublets<usize>>(
     each_by(group, id, benched, |id| [any, id, id]);
 }
 
-fn each_outgoing<B: Benched + Doublets<usize>>(
+fn each_outgoing<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,
@@ -232,7 +298,7 @@ fn each_outgoing<B: Benched + Doublets<usize>>(
     each_by(group, id, benched, |id| [any, id, any]);
 }
 
-fn each_incoming<B: Benched + Doublets<usize>>(
+fn each_incoming<B: Checked + Doublets<usize>>(
     group: &mut BenchmarkGroup<WallTime>,
     id: &str,
     benched: &mut B,

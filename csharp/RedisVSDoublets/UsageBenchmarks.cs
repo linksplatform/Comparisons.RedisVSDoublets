@@ -19,6 +19,8 @@ namespace Comparisons.RedisVSDoublets;
 /// <item><term>Set_Remove</term><description><c>N</c> × <c>SREM m</c> for the members <c>B</c> down to <c>B - N + 1</c>; undone by <c>SADD</c></description></item>
 /// <item><term>Set_Contains</term><description><c>N</c> × <c>SISMEMBER m</c> for the members <c>1..=N</c></description></item>
 /// </list>
+/// One unmeasured iteration of <c>KeyValue_Get</c> and <c>Queue_Pop</c> must read the values <c>1..=N</c>, one of
+/// <c>Set_Contains</c> must find all <c>N</c> members; the changes read nothing.
 /// </remarks>
 public static class UsageBenchmarks
 {
@@ -29,9 +31,29 @@ public static class UsageBenchmarks
         "Queue_Push", "Queue_Pop", "Set_Add", "Set_Remove", "Set_Contains",
     ];
 
-    private static void Visit(ulong value) => Benchmarks.Visited += value;
+    private static void Visit(ulong value)
+    {
+        Benchmarks.Visited += value;
+        Benchmarks.Results++;
+    }
 
-    private static void Visit(bool found) => Benchmarks.Visited += found ? 1UL : 0;
+    private static void Visit(bool found)
+    {
+        Benchmarks.Visited += found ? 1UL : 0;
+        Benchmarks.Results++;
+    }
+
+    /// <summary>Throws unless <paramref name="store"/> contains exactly the background data.</summary>
+    public static void CheckBackground(IBenchedUsage store, int background)
+    {
+        var snapshot = store.Snapshot();
+        if (!snapshot.Equals(UsageSnapshot.Background(background)))
+        {
+            throw new InvalidOperationException(
+                $"The store must contain exactly the background data of {background} values, but it contains {snapshot.Values.Count} " +
+                $"keys, {snapshot.Queue.Count} queue values and {snapshot.Members.Count} set members.");
+        }
+    }
 
     /// <summary>The work of <paramref name="group"/>.</summary>
     public static Work<IBenchedUsage> Work(string group, int background, int count)
@@ -59,7 +81,7 @@ public static class UsageBenchmarks
 
         return group switch
         {
-            "KeyValue_Get" => new(store => ForFirst(k => store.Get(k, Visit)), Nothing),
+            "KeyValue_Get" => new(store => ForFirst(k => store.Get(k, Visit)), Nothing, Found.First(count)),
             "KeyValue_Set" => new(store => ForFirst(k => store.Set(k, k + b)), store => ForFirst(k => store.Set(k, k))),
             "KeyValue_Delete" => new(store => ForLast(store.Delete), store => ForLast(k => store.Set(k, k))),
             "Counter_Increment" => new(store => ForFirst(store.Increment), store => ForFirst(k => store.Set(k, k))),
@@ -72,10 +94,11 @@ public static class UsageBenchmarks
                     {
                         store.PushFront(k);
                     }
-                }),
+                },
+                Found.First(count)),
             "Set_Add" => new(store => ForFirst(i => store.Add(b + i)), store => ForFirst(i => store.Remove(b + i))),
             "Set_Remove" => new(store => ForLast(store.Remove), store => ForLast(store.Add)),
-            "Set_Contains" => new(store => ForFirst(k => store.Contains(k, Visit)), Nothing),
+            "Set_Contains" => new(store => ForFirst(k => store.Contains(k, Visit)), Nothing, new Found(n, n)),
             _ => throw new ArgumentException($"unknown benchmark group {group}", nameof(group)),
         };
     }

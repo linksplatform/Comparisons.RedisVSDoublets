@@ -17,7 +17,7 @@ if (backend is not ("" or "redis" or "doublets"))
 var (background, links) = (Settings.BackgroundLinks, Settings.BenchmarkLinks);
 Mode[] modes = [Mode.NonTransaction, Mode.Transaction, Mode.Pipeline];
 
-void Run<TStore>(string group, string id, Sampling sampling, Func<TStore> open, Work<TStore> work)
+void Run<TStore>(string group, string id, Sampling sampling, Func<TStore> open, Work<TStore> work, Action<TStore, int> checkBackground)
     where TStore : IBenched
 {
     if (!$"{group}/{id}".Contains(filter, StringComparison.Ordinal))
@@ -26,7 +26,7 @@ void Run<TStore>(string group, string id, Sampling sampling, Func<TStore> open, 
     }
     Console.Error.WriteLine($"Benchmarking {group}/{id}");
     using var store = open();
-    var estimate = Harness.Measure(sampling, store, work.Operation, work.Undo);
+    var estimate = Harness.Measure(sampling, store, work, checkBackground);
     Console.WriteLine(estimate.Bencher(group, id));
 }
 
@@ -36,14 +36,14 @@ if (backend is "" or "redis")
     {
         foreach (var mode in modes)
         {
-            Run<IBenchedLinks>(group, $"Redis_{mode}", Sampling.Redis, () => RedisLinks.Open(mode), Benchmarks.Single(group, background, links));
+            Run<IBenchedLinks>(group, $"Redis_{mode}", Sampling.Redis, () => RedisLinks.Open(mode), Benchmarks.Single(group, background, links), Benchmarks.CheckBackground);
         }
     }
     foreach (var group in UsageBenchmarks.Groups)
     {
         foreach (var mode in modes)
         {
-            Run<IBenchedUsage>(group, $"Redis_{mode}", Sampling.Redis, () => RedisUsage.Open(mode), UsageBenchmarks.Work(group, background, links));
+            Run<IBenchedUsage>(group, $"Redis_{mode}", Sampling.Redis, () => RedisUsage.Open(mode), UsageBenchmarks.Work(group, background, links), UsageBenchmarks.CheckBackground);
         }
     }
 }
@@ -54,12 +54,12 @@ if (backend is "" or "doublets")
     {
         foreach (var variant in DoubletsLinks.Variants)
         {
-            Run<IBenchedLinks>(group, variant, Sampling.Doublets, () => DoubletsLinks.Open(variant), Benchmarks.Single(group, background, links));
+            Run<IBenchedLinks>(group, variant, Sampling.Doublets, () => DoubletsLinks.Open(variant), Benchmarks.Single(group, background, links), Benchmarks.CheckBackground);
         }
     }
     foreach (var group in UsageBenchmarks.Groups)
     {
-        Run<IBenchedUsage>(group, DoubletsUsage.Variant, Sampling.Doublets, () => new DoubletsUsage(), UsageBenchmarks.Work(group, background, links));
+        Run<IBenchedUsage>(group, DoubletsUsage.Variant, Sampling.Doublets, () => new DoubletsUsage(), UsageBenchmarks.Work(group, background, links), UsageBenchmarks.CheckBackground);
     }
 }
 

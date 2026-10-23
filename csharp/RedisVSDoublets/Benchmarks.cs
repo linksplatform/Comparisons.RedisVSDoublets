@@ -1,7 +1,22 @@
 namespace Comparisons.RedisVSDoublets;
 
-/// <summary>The measured work and its undo, both run on the store of the benchmark.</summary>
-public sealed record Work<TStore>(Action<TStore> Operation, Action<TStore> Undo);
+/// <summary>
+/// The measured work and its undo, both run on the store of the benchmark, and the results that one iteration of the
+/// work must find.
+/// </summary>
+public sealed record Work<TStore>(Action<TStore> Operation, Action<TStore> Undo, Found Expected = default);
+
+/// <summary>The results that the work found: how many links or values, and the sum of their numbers (link ids or values).</summary>
+public readonly record struct Found(ulong Count, ulong Sum)
+{
+    /// <summary>All results found so far by the benchmarks.</summary>
+    public static Found Total => new(Benchmarks.Results, Benchmarks.Visited);
+
+    /// <summary>The results <c>1, 2, ..., n</c>.</summary>
+    public static Found First(int n) => new((ulong)n, (ulong)n * ((ulong)n + 1) / 2);
+
+    public static Found operator -(Found after, Found before) => new(after.Count - before.Count, after.Sum - before.Sum);
+}
 
 /// <summary>
 /// The operations of the links benchmarks, the same as in <c>rust/benches/benchmarks/links.rs</c>. They are written once
@@ -20,6 +35,8 @@ public sealed record Work<TStore>(Action<TStore> Operation, Action<TStore> Undo)
 /// <item><term>Each_Outgoing</term><description><c>N</c> × <c>Each(*, id, *)</c></description></item>
 /// <item><term>Each_Incoming</term><description><c>N</c> × <c>Each(*, *, id)</c></description></item>
 /// </list>
+/// One unmeasured iteration of <c>Each_All</c> must find the links <c>1..=B</c>, one of the other <c>Each_*</c> groups the
+/// links <c>1..=N</c>; the changes find nothing.
 /// </remarks>
 public static class Benchmarks
 {
@@ -30,7 +47,27 @@ public static class Benchmarks
     /// <summary>Every found link id (and every value read by the usage benchmarks) is added to this value, so reading it cannot be skipped.</summary>
     public static ulong Visited { get; set; }
 
-    private static void Visit(Link link) => Visited += link.Id;
+    /// <summary>The number of found links (and of values read by the usage benchmarks).</summary>
+    public static ulong Results { get; set; }
+
+    private static void Visit(Link link)
+    {
+        Visited += link.Id;
+        Results++;
+    }
+
+    /// <summary>Throws unless <paramref name="store"/> contains exactly the point links <c>1..=background</c>.</summary>
+    public static void CheckBackground(IBenchedLinks store, int background)
+    {
+        var links = new List<Link>(background);
+        store.Each(store.Any, store.Any, store.Any, links.Add);
+        links.Sort((left, right) => left.Id.CompareTo(right.Id));
+        if (!links.SequenceEqual(Enumerable.Range(1, background).Select(id => Link.Point((ulong)id))))
+        {
+            throw new InvalidOperationException(
+                $"The store must contain exactly the point links 1..={background}, but it contains {links.Count} links.");
+        }
+    }
 
     /// <summary>The query <c>(id, source, target)</c> of an <c>Each_*</c> group for a link id and the value that matches everything.</summary>
     public static Func<ulong, ulong, (ulong Id, ulong Source, ulong Target)>? Query(string group) => group switch
@@ -92,7 +129,7 @@ public static class Benchmarks
                         store.CreatePoint();
                     }
                 }),
-            "Each_All" => new(store => store.Each(store.Any, store.Any, store.Any, Visit), Nothing),
+            "Each_All" => new(store => store.Each(store.Any, store.Any, store.Any, Visit), Nothing, Found.First(backgroundLinks)),
             _ when Query(group) is { } query => new(
                 store =>
                 {
@@ -102,7 +139,8 @@ public static class Benchmarks
                         store.Each(index, source, target, Visit);
                     }
                 },
-                Nothing),
+                Nothing,
+                Found.First(links)),
             _ => throw new ArgumentException($"unknown benchmark group {group}", nameof(group)),
         };
     }

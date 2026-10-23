@@ -51,10 +51,32 @@ public class HarnessTests
         using var store = DoubletsLinks.Open("Doublets_United_Volatile");
         var operations = 0;
         var estimate = Harness.Measure(sampling, store,
-            links => { operations++; Thread.Sleep(1); },
-            links => Thread.Sleep(20));
+            new Work<IBenchedLinks>(links => { operations++; Thread.Sleep(1); }, links => Thread.Sleep(20)),
+            Benchmarks.CheckBackground);
         Assert.InRange(estimate.Median, 1e6, 15e6);
         Assert.True(operations > 3);
+        Assert.Equal(0UL, store.Count());
+    }
+
+    [Fact]
+    public void MeasureChecksTheFoundResults()
+    {
+        using var store = DoubletsLinks.Open("Doublets_United_Volatile");
+        var work = Benchmarks.Single("Each_Identity", Settings.BackgroundLinks, Settings.BenchmarkLinks);
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            Harness.Measure(Sampling.Doublets, store, work with { Expected = Found.First(Settings.BenchmarkLinks - 1) }, Benchmarks.CheckBackground));
+        Assert.Contains("instead of", error.Message, StringComparison.Ordinal);
+        Assert.Equal(0UL, store.Count());
+    }
+
+    [Fact]
+    public void MeasureChecksThatTheUndoRestoresTheBackground()
+    {
+        using var store = DoubletsLinks.Open("Doublets_United_Volatile");
+        var work = Benchmarks.Single("Delete", Settings.BackgroundLinks, Settings.BenchmarkLinks) with { Undo = _ => { } };
+        var error = Assert.Throws<InvalidOperationException>(() =>
+            Harness.Measure(Sampling.Doublets, store, work, Benchmarks.CheckBackground));
+        Assert.Contains("point links", error.Message, StringComparison.Ordinal);
         Assert.Equal(0UL, store.Count());
     }
 }

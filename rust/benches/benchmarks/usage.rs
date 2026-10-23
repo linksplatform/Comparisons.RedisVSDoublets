@@ -20,14 +20,21 @@
 //! The commands name the Redis implementation ([`RedisUsage`]); Doublets
 //! ([`DoubletsUsage`]) does the same work with links. Every read value is
 //! passed to the store's sink, which consumes it with
-//! [`black_box`](std::hint::black_box).
+//! [`black_box`].
+//!
+//! One unmeasured iteration of `KeyValue_Get` and `Queue_Pop` must read the
+//! values `1..=N`, one of `Set_Contains` must find all `N` members (counted
+//! by their number and the sum of the values), and the changes read nothing.
+
+use std::hint::black_box;
 
 use criterion::{BenchmarkGroup, Criterion, measurement::WallTime};
 use redis_vs_doublets::{
-    Benched, DoubletsUsage, Mode, RedisUsage, Result, Usage, background_links, benchmark_links,
+    Benched, DoubletsUsage, Mode, RedisUsage, Result, Snapshot, Usage, background_links,
+    benchmark_links,
 };
 
-use super::{doublets_group, measure, read_only, redis_group};
+use super::{Checked, Found, SinkResults, doublets_group, measure, read_only, redis_group};
 
 /// The groups, in the order in which they run.
 const GROUPS: [&str; 9] = [
@@ -64,6 +71,38 @@ pub fn doublets(c: &mut Criterion) {
     }
 }
 
+/// All usage stores pass every read value to their sink.
+macro_rules! checked_usage {
+    ($($store:ty),*) => {$(
+        impl Checked for $store {
+            fn count_sink(&mut self, results: Option<SinkResults>) {
+                match results {
+                    Some(results) => self.set_sink(move |value| {
+                        results
+                            .lock()
+                            .expect("sink results mutex is poisoned")
+                            .add(value);
+                    }),
+                    None => self.set_sink(|value| {
+                        black_box(value);
+                    }),
+                }
+            }
+
+            fn check_background(&mut self, background: usize) -> Result<()> {
+                assert_eq!(
+                    self.snapshot()?,
+                    Snapshot::background(background),
+                    "the store must contain exactly the background data"
+                );
+                Ok(())
+            }
+        }
+    )*};
+}
+
+checked_usage!(RedisUsage, DoubletsUsage);
+
 /// Calls `action` for `1..=N`.
 fn first(action: &mut impl FnMut(u64) -> Result<()>) -> Result<()> {
     (1..=benchmark_links() as u64).try_for_each(action)
@@ -78,14 +117,32 @@ fn last(action: &mut impl FnMut(u64) -> Result<()>) -> Result<()> {
 }
 
 /// Measures the work of the group `name`.
-fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, benched: &mut U) {
+fn run<U: Checked + Usage>(
+    group: &mut BenchmarkGroup<WallTime>,
+    name: &str,
+    id: &str,
+    benched: &mut U,
+) {
     let b = background_links() as u64;
+    let (nothing, first_values) = (Found::default(), Found::first(benchmark_links()));
+    let all_members = Found {
+        count: benchmark_links() as u64,
+        sum: benchmark_links() as u64,
+    };
     match name {
-        "KeyValue_Get" => measure(group, id, benched, |s| first(&mut |k| s.get(k)), read_only),
+        "KeyValue_Get" => measure(
+            group,
+            id,
+            benched,
+            first_values,
+            |s| first(&mut |k| s.get(k)),
+            read_only,
+        ),
         "KeyValue_Set" => measure(
             group,
             id,
             benched,
+            nothing,
             |s| first(&mut |k| s.set(k, k + b)),
             |s| first(&mut |k| s.set(k, k)),
         ),
@@ -93,6 +150,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            nothing,
             |s| last(&mut |k| s.delete(k)),
             |s| last(&mut |k| s.set(k, k)),
         ),
@@ -100,6 +158,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            nothing,
             |s| first(&mut |k| s.increment(k)),
             |s| first(&mut |k| s.set(k, k)),
         ),
@@ -107,6 +166,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            nothing,
             |s| first(&mut |i| s.push(b + i)),
             |s| first(&mut |_| s.pop_back()),
         ),
@@ -114,6 +174,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            first_values,
             |s| first(&mut |_| s.pop()),
             |s| {
                 (1..=benchmark_links() as u64)
@@ -125,6 +186,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            nothing,
             |s| first(&mut |i| s.add(b + i)),
             |s| first(&mut |i| s.remove(b + i)),
         ),
@@ -132,6 +194,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            nothing,
             |s| last(&mut |m| s.remove(m)),
             |s| last(&mut |m| s.add(m)),
         ),
@@ -139,6 +202,7 @@ fn run<U: Usage>(group: &mut BenchmarkGroup<WallTime>, name: &str, id: &str, ben
             group,
             id,
             benched,
+            all_members,
             |s| first(&mut |m| s.contains(m)),
             read_only,
         ),
