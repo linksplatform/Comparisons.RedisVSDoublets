@@ -5,7 +5,7 @@ Checks made while preparing the benchmarks of
 They are not part of the CI. Outputs are in [`logs`](logs).
 
 | Directory | What it checks |
-|-----------|----------------|
+| --- | --- |
 | [`csharp-external-references`](csharp-external-references) | random creates, updates and deletes of links with external references (raw numbers) in the C# stores, compared with a plain list after every step |
 | [`rust-external-references`](rust-external-references) | the same check for the Rust stores of doublets 0.5.0 |
 | [`csharp-usage-index-trees`](csharp-usage-index-trees) | the C# united store's index tree types with the set links of the usage benchmarks (all members share one source) |
