@@ -348,3 +348,14 @@ MigrationBackup/
 
 # Ionide (cross platform F# VS Code tools) working folder
 .ionide/
+
+# Rust (Cargo)
+target/
+**/*.rs.bk
+
+# Benchmark output read by scripts/benchmark_report.py
+results/
+rust/results.md
+
+# Python
+__pycache__/
