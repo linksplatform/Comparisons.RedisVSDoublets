@@ -1,0 +1,4 @@
+united (external only): OK (step 5000)
+split (external only): OK (step 5000)
+united (internal and external): OK (step 5000)
+split (internal and external): after `update 1=(2, 1)`: incoming of link 1=(2, 1): got [4], expected [1, 4] (step 8)

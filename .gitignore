@@ -361,3 +361,4 @@ rust/results.md
 __pycache__/
 # Outputs of the experiments, linked from experiments/README.md
 !experiments/logs/
+!experiments/logs/*.log
