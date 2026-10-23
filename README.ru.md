@@ -191,3 +191,6 @@ BENCHMARK_BACKEND=redis dotnet run -c Release --project csharp/RedisVSDoublets
 Таблицы и графики создаёт [workflow Benchmarks](.github/workflows/benchmarks.yml)
 при каждой отправке в `main`; они находятся в
 [английской версии](README.md#results).
+Исходные результаты проверочного запуска запроса на слияние, который добавил
+сравнение (`B = 1,000`, `N = 100`), находятся в
+[`docs/sample-results`](docs/sample-results).

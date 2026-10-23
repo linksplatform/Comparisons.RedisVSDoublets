@@ -190,6 +190,89 @@ content between the markers below on every push to `main`. `main` is
 protected, so the workflow needs a `BENCHMARK_PUSH_TOKEN` secret (or
 permission for `github-actions` to push) to publish it; until then the results
 are in the `Benchmark report` artifact of the run.
+The raw results of the check run of the pull request that added the comparison
+(`B = 1,000`, `N = 100`) are in [`docs/sample-results`](docs/sample-results).
 
 <!-- results:start -->
+<!-- markdownlint-disable MD013 MD020 MD024 -->
+
+### Rust
+
+#### Rust: 1,000 background links, 100 operations per iteration
+
+_Median time of one iteration with 100 operations. Redis 8.10.2 through redis-rs 1.8.0; doublets 0.5.0. CPU AMD EPYC 7763 64-Core Processor, runtime rustc 1.98.1 (48a229cea 2026-09-01), commit 6ef0747, [GitHub Actions run](https://github.com/linksplatform/Comparisons.RedisVSDoublets/actions/runs/40029663341) on 2026-10-23._
+
+Links storage:
+
+| Operation | Doublets United Volatile | Doublets Split Volatile | Redis NonTransaction | Redis Transaction | Redis Pipeline |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Create | 5.82 µs (128× faster) | 4.85 µs (153× faster) | 13.1 ms | 757 µs | **745 µs** |
+| Update | 22.3 µs (87.9× faster) | 3.76 µs (522× faster) | 27.8 ms | 1.97 ms | **1.96 ms** |
+| Delete | 12.9 µs (57.9× faster) | 9.71 µs (77× faster) | 12.8 ms | 764 µs | **747 µs** |
+| Each All | 1.59 µs (405× faster) | 10.4 µs (62.1× faster) | 657 µs | **644 µs** | 655 µs |
+| Each Identity | 1.31 µs (167× faster) | 1.34 µs (164× faster) | 11.4 ms | 231 µs | **219 µs** |
+| Each Concrete | 2.37 µs (103× faster) | 2.03 µs (120× faster) | 11.6 ms | 261 µs | **243 µs** |
+| Each Outgoing | 4.4 µs (62.6× faster) | 1.71 µs (161× faster) | 11.8 ms | 291 µs | **276 µs** |
+| Each Incoming | 4.53 µs (62.4× faster) | 1.74 µs (162× faster) | 11.5 ms | 295 µs | **283 µs** |
+
+![Rust, Links storage, 1,000 background links, 100 operations per iteration, linear scale](docs/bench_rust_links_1000.png)
+![Rust, Links storage, 1,000 background links, 100 operations per iteration, log scale](docs/bench_rust_links_log_scale_1000.png)
+
+Typical Redis usage:
+
+| Operation | Doublets United Volatile | Redis NonTransaction | Redis Transaction | Redis Pipeline |
+| --- | ---: | ---: | ---: | ---: |
+| KeyValue Get | 4.86 µs (41.8× faster) | 11.5 ms | 220 µs | **203 µs** |
+| KeyValue Set | 35.4 µs (6.47× faster) | 11.7 ms | 237 µs | **229 µs** |
+| KeyValue Delete | 17.5 µs (12.1× faster) | 11.5 ms | 227 µs | **211 µs** |
+| Counter Increment | 39.7 µs (5.26× faster) | 11.5 ms | 226 µs | **209 µs** |
+| Queue Push | 101 µs (2.13× faster) | 11.4 ms | 226 µs | **216 µs** |
+| Queue Pop | 44.2 µs (5.09× faster) | 11.6 ms | 237 µs | **225 µs** |
+| Set Add | 12.2 µs (16.8× faster) | 11.5 ms | 225 µs | **206 µs** |
+| Set Remove | 18 µs (11.8× faster) | 11.4 ms | 224 µs | **212 µs** |
+| Set Contains | 2.98 µs (68.6× faster) | 11.2 ms | 218 µs | **204 µs** |
+
+![Rust, Typical Redis usage, 1,000 background links, 100 operations per iteration, linear scale](docs/bench_rust_usage_1000.png)
+![Rust, Typical Redis usage, 1,000 background links, 100 operations per iteration, log scale](docs/bench_rust_usage_log_scale_1000.png)
+
+### C#
+
+#### C#: 1,000 background links, 100 operations per iteration
+
+_Median time of one iteration with 100 operations. Redis 8.10.2 through StackExchange.Redis 3.4.20; Platform.Data.Doublets 0.18.1. CPU AMD EPYC 7763 64-Core Processor (Redis) and AMD EPYC 9V74 80-Core Processor (Doublets), runtime .NET SDK 10.0.402, commit 6ef0747, [GitHub Actions run](https://github.com/linksplatform/Comparisons.RedisVSDoublets/actions/runs/40029663341) on 2026-10-23._
+
+Links storage:
+
+| Operation | Doublets United Volatile | Doublets Split Volatile | Redis NonTransaction | Redis Transaction | Redis Pipeline |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| Create | 43.6 µs (25.1× faster) | 11.9 µs (91.8× faster) | 21.1 ms | 1.12 ms | **1.1 ms** |
+| Update | 56.3 µs (44.2× faster) | 11.1 µs (224× faster) | 44 ms | 2.58 ms | **2.49 ms** |
+| Delete | 18.9 µs (56.6× faster) | 12.7 µs (84.3× faster) | 21.2 ms | 1.12 ms | **1.07 ms** |
+| Each All | 10.8 µs (55.1× faster) | 9.58 µs (62× faster) | 599 µs | 601 µs | **594 µs** |
+| Each Identity | 3.42 µs (105× faster) | 5.05 µs (71× faster) | 19 ms | 440 µs | **359 µs** |
+| Each Concrete | 4.82 µs (76.4× faster) | 5.31 µs (69.3× faster) | 18.9 ms | 463 µs | **368 µs** |
+| Each Outgoing | 6.32 µs (64.1× faster) | 5.57 µs (72.8× faster) | 19.1 ms | 500 µs | **405 µs** |
+| Each Incoming | 10.4 µs (38.8× faster) | 5.58 µs (72.2× faster) | 19.1 ms | 499 µs | **403 µs** |
+
+![C#, Links storage, 1,000 background links, 100 operations per iteration, linear scale](docs/bench_csharp_links_1000.png)
+![C#, Links storage, 1,000 background links, 100 operations per iteration, log scale](docs/bench_csharp_links_log_scale_1000.png)
+
+Typical Redis usage:
+
+| Operation | Doublets United Volatile | Redis NonTransaction | Redis Transaction | Redis Pipeline |
+| --- | ---: | ---: | ---: | ---: |
+| KeyValue Get | 9.24 µs (37.1× faster) | 18.9 ms | 423 µs | **343 µs** |
+| KeyValue Set | 76.8 µs (5.11× faster) | 19 ms | 450 µs | **393 µs** |
+| KeyValue Delete | 31.3 µs (11.4× faster) | 19 ms | 426 µs | **357 µs** |
+| Counter Increment | 78.9 µs (4.4× faster) | 18.9 ms | 418 µs | **348 µs** |
+| Queue Push | 222 µs (1.67× faster) | 19 ms | 439 µs | **372 µs** |
+| Queue Pop | 85.6 µs (4.34× faster) | 19 ms | 440 µs | **372 µs** |
+| Set Add | 49.6 µs (7.34× faster) | 19 ms | 431 µs | **364 µs** |
+| Set Remove | 32.2 µs (11.2× faster) | 18.9 ms | 432 µs | **360 µs** |
+| Set Contains | 5.57 µs (62.7× faster) | 18.8 ms | 426 µs | **350 µs** |
+
+![C#, Typical Redis usage, 1,000 background links, 100 operations per iteration, linear scale](docs/bench_csharp_usage_1000.png)
+![C#, Typical Redis usage, 1,000 background links, 100 operations per iteration, log scale](docs/bench_csharp_usage_log_scale_1000.png)
+
+<!-- markdownlint-restore -->
 <!-- results:end -->
