@@ -87,13 +87,29 @@ fn check<D: Doublets<usize>>(name: &str, mut links: D, mixed: bool) {
         }
         for (&id, &(s, t)) in &model {
             let expected = |f: &dyn Fn(&(usize, usize)) -> bool| -> Vec<usize> {
-                model.iter().filter(|(_, v)| f(v)).map(|(&k, _)| k).collect()
+                model
+                    .iter()
+                    .filter(|(_, v)| f(v))
+                    .map(|(&k, _)| k)
+                    .collect()
             };
             let checks = [
                 ("identity", each(&links, [id, any, any]), vec![id]),
-                ("concrete", each(&links, [any, s, t]), expected(&|v| *v == (s, t))),
-                ("outgoing", each(&links, [any, s, any]), expected(&|v| v.0 == s)),
-                ("incoming", each(&links, [any, any, t]), expected(&|v| v.1 == t)),
+                (
+                    "concrete",
+                    each(&links, [any, s, t]),
+                    expected(&|v| *v == (s, t)),
+                ),
+                (
+                    "outgoing",
+                    each(&links, [any, s, any]),
+                    expected(&|v| v.0 == s),
+                ),
+                (
+                    "incoming",
+                    each(&links, [any, any, t]),
+                    expected(&|v| v.1 == t),
+                ),
             ];
             for (query, got, expected) in checks {
                 if got != expected {
@@ -105,15 +121,26 @@ fn check<D: Doublets<usize>>(name: &str, mut links: D, mixed: bool) {
                 }
             }
             if error.is_none() && links.count() != model.len() {
-                error = Some(format!("after `{what}`: count {} != {}", links.count(), model.len()));
+                error = Some(format!(
+                    "after `{what}`: count {} != {}",
+                    links.count(),
+                    model.len()
+                ));
             }
             if error.is_some() {
                 break;
             }
         }
     }
-    let kind = if mixed { "internal and external" } else { "external only" };
-    println!("{name} ({kind}): {} (step {step})", error.as_deref().unwrap_or("OK"));
+    let kind = if mixed {
+        "internal and external"
+    } else {
+        "external only"
+    };
+    println!(
+        "{name} ({kind}): {} (step {step})",
+        error.as_deref().unwrap_or("OK")
+    );
 }
 
 fn main() {

@@ -4,11 +4,12 @@ Checks made while preparing the benchmarks of
 [issue #1](https://github.com/linksplatform/Comparisons.RedisVSDoublets/issues/1).
 They are not part of the CI. Outputs are in [`logs`](logs).
 
-| Directory | What it checks |
+| Experiment | What it checks |
 | --- | --- |
 | [`csharp-external-references`](csharp-external-references) | random creates, updates and deletes of links with external references (raw numbers) in the C# stores, compared with a plain list after every step |
 | [`rust-external-references`](rust-external-references) | the same check for the Rust stores of doublets 0.5.0 |
 | [`csharp-usage-index-trees`](csharp-usage-index-trees) | the C# united store's index tree types with the set links of the usage benchmarks (all members share one source) |
+| [`check-full-size.sh`](check-full-size.sh) | the in-memory Doublets stores of both languages with the largest scheduled size |
 
 External references
 ([`logs/csharp-external-references.log`](logs/csharp-external-references.log)):
@@ -41,4 +42,17 @@ noisy, the host was loaded), so the benchmarks keep the default trees.
 ```bash
 cd experiments/csharp-usage-index-trees
 dotnet run -c Release -- 200000
+```
+
+Largest size ([`logs/check-full-size.log`](logs/check-full-size.log)): the
+stores of doublets 0.5.0 failed after 1,040,384 links, so
+[`check-full-size.sh`](check-full-size.sh) runs the Doublets benchmarks that
+create links (Create, KeyValue Set and Queue Push) with the largest scheduled
+size, 1,000,000 background links and 1,000 operations per iteration, under a
+4 GiB address space limit for Rust and a 1 GiB heap limit for .NET. Every store
+of both languages passes its result checks; in each group the Rust lines come
+before the C# lines.
+
+```bash
+experiments/check-full-size.sh > experiments/logs/check-full-size.log
 ```

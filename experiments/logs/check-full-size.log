@@ -1,0 +1,40 @@
+    Finished `bench` profile [optimized] target(s) in 0.23s
+  Executable benches/bench.rs (target/release/deps/bench-5481f29b645e5ad3)
+  Determining projects to restore...
+  All projects are up-to-date for restore.
+  RedisVSDoublets -> /tmp/wt/csharp/RedisVSDoublets/bin/Release/net10.0/redis-vs-doublets.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:13.20
+    Finished `bench` profile [optimized] target(s) in 0.17s
+     Running benches/bench.rs (target/release/deps/bench-5481f29b645e5ad3)
+Gnuplot not found, using plotters backend
+
+Warning: Unable to complete 100 samples in 2.0s. You may wish to increase target time to 2.8s, enable flat sampling, or reduce sample count to 50.
+test Create/Doublets_United_Volatile ... bench:     161,527 ns/iter (+/- 34,052)
+test Create/Doublets_Split_Volatile ... bench:      84,061 ns/iter (+/- 10,992)
+
+test Create/Doublets_United_Volatile ... bench:   1,656,498 ns/iter (+/- 238,662)
+test Create/Doublets_Split_Volatile ... bench:     333,040 ns/iter (+/- 50,714)
+Visited values sum to 0
+    Finished `bench` profile [optimized] target(s) in 0.26s
+     Running benches/bench.rs (target/release/deps/bench-5481f29b645e5ad3)
+Gnuplot not found, using plotters backend
+test KeyValue_Set/Doublets_United_Volatile ... bench:   1,193,027 ns/iter (+/- 569,167)
+
+test KeyValue_Set/Doublets_United_Volatile ... bench:   3,209,276 ns/iter (+/- 688,728)
+Visited values sum to 0
+    Finished `bench` profile [optimized] target(s) in 13.18s
+     Running benches/bench.rs (target/release/deps/bench-5481f29b645e5ad3)
+Gnuplot not found, using plotters backend
+test Queue_Push/Doublets_United_Volatile ... bench:   3,186,322 ns/iter (+/- 544,176)
+
+test Queue_Push/Doublets_United_Volatile ... bench:   9,395,795 ns/iter (+/- 1,272,916)
+Visited values sum to 0
+
+real	4m10.676s
+user	3m33.311s
+sys	0m14.841s

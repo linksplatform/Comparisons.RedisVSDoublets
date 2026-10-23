@@ -15,6 +15,12 @@ repos:
         language: system
         files: ^rust/.*\.rs$
         pass_filenames: false
+      - id: rustfmt-experiments
+        name: Rust experiment formatting
+        entry: cargo fmt --manifest-path experiments/rust-external-references/Cargo.toml --check
+        language: system
+        files: ^experiments/rust-.*\.rs$
+        pass_filenames: false
       - id: dotnet-format
         name: C# whitespace formatting
         entry: dotnet format whitespace csharp/RedisVSDoublets.slnx --verify-no-changes

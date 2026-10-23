@@ -38,8 +38,9 @@ log = logging.getLogger("benchmark_report")
 ROOT = Path(__file__).resolve().parent.parent
 START_MARKER = "<!-- results:start -->"
 END_MARKER = "<!-- results:end -->"
-# The wide tables cannot be wrapped, and every language repeats the same headings.
-LINT_OFF = "<!-- markdownlint-disable MD013 MD024 -->"
+# The wide tables cannot be wrapped, every language repeats the same headings,
+# and markdownlint takes the "#" that ends "### C#" for a closing sequence.
+LINT_OFF = "<!-- markdownlint-disable MD013 MD020 MD024 -->"
 LINT_ON = "<!-- markdownlint-restore -->"
 
 # Medians that differ by less than 5%, or whose ranges of one standard
