@@ -1,0 +1,45 @@
+name: Dependency audit
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '17 4 * * 1'
+  push:
+    branches: [main]
+    paths: ['**/Cargo.toml', '**/Cargo.lock', '**/*.csproj', 'csharp/global.json', 'scripts/requirements*.txt', 'scripts/audit_dotnet.py', '.github/workflows/dependencies.yml']
+  pull_request:
+    paths: ['**/Cargo.toml', '**/Cargo.lock', '**/*.csproj', 'csharp/global.json', 'scripts/requirements*.txt', 'scripts/audit_dotnet.py', '.github/workflows/dependencies.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  audit:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+      - run: python -m pip install pip-audit==2.10.1
+      - run: pip-audit -r scripts/requirements.txt -r scripts/requirements-ci.txt
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          toolchain: stable
+      - run: cargo install cargo-audit --version 0.22.2 --locked
+      - name: Audit every Rust dependency tree
+        run: |
+          while IFS= read -r lockfile; do
+            cargo audit --file "$lockfile" --deny warnings
+          done < <(git ls-files '**/Cargo.lock' 'Cargo.lock')
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: csharp/global.json
+      - run: python scripts/audit_dotnet.py
