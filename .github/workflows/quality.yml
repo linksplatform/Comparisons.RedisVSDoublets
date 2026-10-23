@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['.github/**', 'scripts/**', 'pyproject.toml', '*.md', 'experiments/**/*.md', '.markdownlint.json']
+    paths: ['.github/**', 'scripts/**', 'pyproject.toml', '*.md', 'experiments/**/*.md', '.markdownlint.json', '.secretlintrc.json', '.pre-commit-config.yaml']
   pull_request:
-    paths: ['.github/**', 'scripts/**', 'pyproject.toml', '*.md', 'experiments/**/*.md', '.markdownlint.json']
+    paths: ['.github/**', 'scripts/**', 'pyproject.toml', '*.md', 'experiments/**/*.md', '.markdownlint.json', '.secretlintrc.json', '.pre-commit-config.yaml']
 
 permissions:
   contents: read
@@ -58,4 +58,14 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - run: npx --yes markdownlint-cli@0.49.1 README.md experiments/README.md
+      - run: npx --yes markdownlint-cli@0.49.1 README.md README.ru.md CONTRIBUTING.md experiments/README.md
+
+  secrets:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - name: Scan maintained source for secrets
+        run: git ls-files -z -- ':!*.png' | xargs -0 npx --yes -p secretlint@13.0.7 -p @secretlint/secretlint-rule-preset-recommend@13.0.7 secretlint
