@@ -8,60 +8,7 @@
 
 using Comparisons.RedisVSDoublets;
 
-var filter = args.Length > 0 ? args[0] : "";
-var backend = Settings.Backend;
-if (backend is not ("" or "redis" or "doublets"))
-{
-    throw new ArgumentException($"BENCHMARK_BACKEND must be `redis` or `doublets`, got `{backend}`");
-}
-var (background, links) = (Settings.BackgroundLinks, Settings.BenchmarkLinks);
-Mode[] modes = [Mode.NonTransaction, Mode.Transaction, Mode.Pipeline];
-
-void Run<TStore>(string group, string id, Sampling sampling, Func<TStore> open, Work<TStore> work, Action<TStore, int> checkBackground)
-    where TStore : IBenched
-{
-    if (!$"{group}/{id}".Contains(filter, StringComparison.Ordinal))
-    {
-        return;
-    }
-    Console.Error.WriteLine($"Benchmarking {group}/{id}");
-    using var store = open();
-    var estimate = Harness.Measure(sampling, store, work, checkBackground);
-    Console.WriteLine(estimate.Bencher(group, id));
-}
-
-if (backend is "" or "redis")
-{
-    foreach (var group in Benchmarks.Groups)
-    {
-        foreach (var mode in modes)
-        {
-            Run<IBenchedLinks>(group, $"Redis_{mode}", Sampling.Redis, () => RedisLinks.Open(mode), Benchmarks.Single(group, background, links), Benchmarks.CheckBackground);
-        }
-    }
-    foreach (var group in UsageBenchmarks.Groups)
-    {
-        foreach (var mode in modes)
-        {
-            Run<IBenchedUsage>(group, $"Redis_{mode}", Sampling.Redis, () => RedisUsage.Open(mode), UsageBenchmarks.Work(group, background, links), UsageBenchmarks.CheckBackground);
-        }
-    }
-}
-
-if (backend is "" or "doublets")
-{
-    foreach (var group in Benchmarks.Groups)
-    {
-        foreach (var variant in DoubletsLinks.Variants)
-        {
-            Run<IBenchedLinks>(group, variant, Sampling.Doublets, () => DoubletsLinks.Open(variant), Benchmarks.Single(group, background, links), Benchmarks.CheckBackground);
-        }
-    }
-    foreach (var group in UsageBenchmarks.Groups)
-    {
-        Run<IBenchedUsage>(group, DoubletsUsage.Variant, Sampling.Doublets, () => new DoubletsUsage(), UsageBenchmarks.Work(group, background, links), UsageBenchmarks.CheckBackground);
-    }
-}
+new Runner(args.Length > 0 ? args[0] : "").Run(Settings.Backend);
 
 // Keeps the visited links and values alive, so reading them cannot be optimized away.
 Console.Error.WriteLine($"Visited values sum to {Benchmarks.Visited}");

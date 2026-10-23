@@ -11,35 +11,60 @@ using Platform.Data.Doublets.Memory.United.Generic;
 using Platform.Memory;
 
 var n = args.Length > 0 ? ulong.Parse(args[0]) : 20_000UL;
-var tenth = n / 10;
-var constants = new LinksConstants<ulong>(enableExternalReferencesSupport: true);
-ulong Raw(ulong v) => new Hybrid<ulong>(v, isExternal: true).Value;
 // The first round only warms up the JIT.
-foreach (var (round, type) in Enum.GetValues<IndexTreeType>().Select(t => (0, t)).Concat(Enum.GetValues<IndexTreeType>().Select(t => (1, t))))
+foreach (var round in new[] { 0, 1 })
 {
-    var links = new UnitedMemoryLinks<ulong>(new HeapResizableDirectMemory(), UnitedMemoryLinks<ulong>.DefaultLinksSizeStep, constants, type);
-    var set = links.CreatePoint();
-    var add = new double[2];
-    var contains = new double[2];
-    var remove = new double[2];
-    var ids = new ulong[n];
-    double Time(Action action) { var start = Stopwatch.GetTimestamp(); action(); return Stopwatch.GetElapsedTime(start).TotalNanoseconds; }
-    int? Bucket(ulong i) => i < tenth ? 0 : i >= n - tenth ? 1 : null;
-    for (ulong i = 0; i < n; i++)
+    foreach (var type in Enum.GetValues<IndexTreeType>())
     {
-        var t = Time(() => ids[i] = links.GetOrCreate(set, Raw(i + 1)));
-        if (Bucket(i) is { } b) { add[b] += t; }
+        var times = new SetTimes(n, type).Measure();
+        if (round == 1) { Console.WriteLine(times); }
     }
-    for (ulong i = 0; i < n; i++)
+}
+
+/// <summary>Times adding, searching and removing <c>n</c> members of one set in a new store.</summary>
+internal sealed class SetTimes(ulong n, IndexTreeType type)
+{
+    private static readonly LinksConstants<ulong> Constants = new(enableExternalReferencesSupport: true);
+    private readonly UnitedMemoryLinks<ulong> _links = new(new HeapResizableDirectMemory(), UnitedMemoryLinks<ulong>.DefaultLinksSizeStep, Constants, type);
+    private readonly ulong[] _ids = new ulong[n];
+    private readonly ulong _tenth = n / 10;
+
+    public string Measure()
     {
-        var t = Time(() => { if (links.SearchOrDefault(set, Raw(i + 1)) != ids[i]) { throw new Exception("not found"); } });
-        if (Bucket(i) is { } b) { contains[b] += t; }
+        var set = _links.CreatePoint();
+        var add = Time(Ascending(), i => _ids[i] = _links.GetOrCreate(set, Raw(i + 1)));
+        var contains = Time(Ascending(), i => { if (_links.SearchOrDefault(set, Raw(i + 1)) != _ids[i]) { throw new Exception("not found"); } });
+        var remove = Time(Descending(), i => _links.Delete(_ids[i], handler: null));
+        return $"{type,-34} add {Format(add)}   contains {Format(contains)}   remove {Format(remove)}";
     }
-    for (ulong i = n; i-- > 0;)
+
+    private static ulong Raw(ulong v) => new Hybrid<ulong>(v, isExternal: true).Value;
+
+    private IEnumerable<ulong> Ascending()
     {
-        var t = Time(() => links.Delete(ids[i], handler: null));
-        if (Bucket(i) is { } b) { remove[b] += t; }
+        for (ulong i = 0; i < n; i++) { yield return i; }
     }
-    string F(double[] a) => $"{a[0] / tenth / 1000,6:F1} µs -> {a[1] / tenth / 1000,6:F1} µs";
-    if (round == 1) { Console.WriteLine($"{type,-34} add {F(add)}   contains {F(contains)}   remove {F(remove)}"); }
+
+    private IEnumerable<ulong> Descending()
+    {
+        for (var i = n; i-- > 0;) { yield return i; }
+    }
+
+    /// <summary>Sums the times of <paramref name="action"/> for the first and the last tenth of the members.</summary>
+    private double[] Time(IEnumerable<ulong> members, Action<ulong> action)
+    {
+        var sums = new double[2];
+        foreach (var i in members)
+        {
+            var start = Stopwatch.GetTimestamp();
+            action(i);
+            var elapsed = Stopwatch.GetElapsedTime(start).TotalNanoseconds;
+            if (Bucket(i) is { } b) { sums[b] += elapsed; }
+        }
+        return sums;
+    }
+
+    private int? Bucket(ulong i) => i < _tenth ? 0 : i >= n - _tenth ? 1 : null;
+
+    private string Format(double[] sums) => $"{sums[0] / _tenth / 1000,6:F1} µs -> {sums[1] / _tenth / 1000,6:F1} µs";
 }

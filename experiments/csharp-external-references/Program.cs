@@ -10,7 +10,6 @@ using Platform.Memory;
 
 var mixInternal = args.Length > 0 && args[0] == "mixed";
 var external = new LinksConstants<ulong>(true);
-ulong Ext(ulong v) => new Hybrid<ulong>(v, isExternal: true).Value;
 foreach (var (name, open) in new (string, Func<ILinks<ulong>>)[]
 {
     ("united", () => new UnitedMemoryLinks<ulong>(new HeapResizableDirectMemory(), UnitedMemoryLinks<ulong>.DefaultLinksSizeStep, external, IndexTreeType.Default)),
@@ -18,68 +17,102 @@ foreach (var (name, open) in new (string, Func<ILinks<ulong>>)[]
     ("split", () => new SplitMemoryLinks<ulong>(new HeapResizableDirectMemory(), new HeapResizableDirectMemory(), SplitMemoryLinks<ulong>.DefaultLinksSizeStep, external)),
 })
 {
-    var links = open();
-    var any = links.Constants.Any;
-    var model = new Dictionary<ulong, (ulong S, ulong T)>();
-    var random = new Random(1);
-    string? error = null;
-    ulong Value()
+    var (step, error) = new Check(open(), mixInternal).Run(5000);
+    Console.WriteLine($"{name} ({(mixInternal ? "internal and external" : "external only")}): {error ?? "OK"} (step {step})");
+}
+
+/// <summary>Applies the same random changes to a store and to a plain list and compares their queries.</summary>
+internal sealed class Check(ILinks<ulong> links, bool mixInternal)
+{
+    private readonly ulong _any = links.Constants.Any;
+    private readonly Dictionary<ulong, (ulong S, ulong T)> _model = new();
+    private readonly Random _random = new(1);
+
+    /// <summary>Returns the number of steps done and the first mismatch, if any.</summary>
+    public (int Step, string? Error) Run(int steps)
     {
-        if (mixInternal && model.Count > 0 && random.Next(2) == 0) { return model.Keys.ElementAt(random.Next(model.Count)); }
-        return Ext((ulong)random.Next(1, 30));
+        for (var step = 0; step < steps; step++)
+        {
+            if (Change() is { } what && Compare() is { } error)
+            {
+                return (step + 1, $"after `{what}`: {error}");
+            }
+        }
+        return (steps, null);
     }
-    List<ulong> Each(ulong s, ulong t)
+
+    /// <summary>Makes a random change and describes it, or returns null if the change was skipped.</summary>
+    private string? Change()
+    {
+        var op = _random.Next(3);
+        if (op == 0 || _model.Count < 3)
+        {
+            return Create();
+        }
+        var id = _model.Keys.ElementAt(_random.Next(_model.Count));
+        return op == 1 ? Update(id) : Delete(id);
+    }
+
+    private string? Create()
+    {
+        var (s, t) = (Value(), Value());
+        // Doublets keeps every (source, target) pair once, so a duplicate is skipped.
+        if (_model.ContainsValue((s, t))) { return null; }
+        var id = links.CreateAndUpdate(s, t);
+        _model[id] = (s, t);
+        return $"create {id}=({s},{t})";
+    }
+
+    private string? Update(ulong id)
+    {
+        var (s, t) = (Value(), Value());
+        if (_model.ContainsValue((s, t))) { return null; }
+        links.Update(id, s, t);
+        _model[id] = (s, t);
+        return $"update {id}=({s},{t})";
+    }
+
+    private string? Delete(ulong id)
+    {
+        // A link that others refer to cannot be deleted; skip those.
+        if (_model.Values.Any(v => v.S == id || v.T == id)) { return null; }
+        links.Delete(id, handler: null);
+        _model.Remove(id);
+        return $"delete {id}";
+    }
+
+    private ulong Value()
+    {
+        if (mixInternal && _model.Count > 0 && _random.Next(2) == 0) { return _model.Keys.ElementAt(_random.Next(_model.Count)); }
+        return new Hybrid<ulong>((ulong)_random.Next(1, 30), isExternal: true).Value;
+    }
+
+    /// <summary>Returns the first query of the store that differs from the plain list, or null.</summary>
+    private string? Compare()
+    {
+        foreach (var (s, t) in _model.Values)
+        {
+            var error = Mismatch($"concrete ({s},{t})", s, t, v => v == (s, t))
+                ?? Mismatch($"outgoing {s}", s, _any, v => v.S == s)
+                ?? Mismatch($"incoming {t}", _any, t, v => v.T == t)
+                ?? (links.Count() != (ulong)_model.Count ? $"count {links.Count()} != {_model.Count}" : null);
+            if (error is not null) { return error; }
+        }
+        return null;
+    }
+
+    private string? Mismatch(string query, ulong s, ulong t, Func<(ulong S, ulong T), bool> matches)
+    {
+        var expected = _model.Where(e => matches(e.Value)).Select(e => e.Key).Order().ToList();
+        var got = Each(s, t);
+        return got.SequenceEqual(expected) ? null : $"{query}: got [{string.Join(",", got)}], expected [{string.Join(",", expected)}]";
+    }
+
+    private List<ulong> Each(ulong s, ulong t)
     {
         var r = new List<ulong>();
-        links.Each(l => { r.Add(l![0]); return links.Constants.Continue; }, any, s, t);
+        links.Each(l => { r.Add(l![0]); return links.Constants.Continue; }, _any, s, t);
         r.Sort();
         return r;
     }
-    int step;
-    for (step = 0; step < 5000 && error is null; step++)
-    {
-        var op = random.Next(3);
-        string what;
-        if (op == 0 || model.Count < 3)
-        {
-            var (s, t) = (Value(), Value());
-            // Doublets keeps every (source, target) pair once, so a duplicate is skipped.
-            if (model.ContainsValue((s, t))) { continue; }
-            var id = links.CreateAndUpdate(s, t);
-            model[id] = (s, t);
-            what = $"create {id}=({s},{t})";
-        }
-        else
-        {
-            var id = model.Keys.ElementAt(random.Next(model.Count));
-            if (op == 1)
-            {
-                var (s, t) = (Value(), Value());
-                if (model.ContainsValue((s, t))) { continue; }
-                links.Update(id, s, t);
-                model[id] = (s, t);
-                what = $"update {id}=({s},{t})";
-            }
-            else
-            {
-                // A link that others refer to cannot be deleted; skip those.
-                if (model.Values.Any(v => v.S == id || v.T == id)) { continue; }
-                links.Delete(id, handler: null);
-                model.Remove(id);
-                what = $"delete {id}";
-            }
-        }
-        foreach (var (id, (s, t)) in model)
-        {
-            var expectedPair = model.Where(e => e.Value == (s, t)).Select(e => e.Key).Order().ToList();
-            var expectedOut = model.Where(e => e.Value.S == s).Select(e => e.Key).Order().ToList();
-            var expectedIn = model.Where(e => e.Value.T == t).Select(e => e.Key).Order().ToList();
-            if (!Each(s, t).SequenceEqual(expectedPair)) { error = $"concrete ({s},{t}): got [{string.Join(",", Each(s, t))}], expected [{string.Join(",", expectedPair)}]"; }
-            else if (!Each(s, any).SequenceEqual(expectedOut)) { error = $"outgoing {s}: got [{string.Join(",", Each(s, any))}], expected [{string.Join(",", expectedOut)}]"; }
-            else if (!Each(any, t).SequenceEqual(expectedIn)) { error = $"incoming {t}: got [{string.Join(",", Each(any, t))}], expected [{string.Join(",", expectedIn)}]"; }
-            else if (links.Count() != (ulong)model.Count) { error = $"count {links.Count()} != {model.Count}"; }
-            if (error is not null) { error = $"after `{what}`: {error}"; break; }
-        }
-    }
-    Console.WriteLine($"{name} ({(mixInternal ? "internal and external" : "external only")}): {error ?? "OK"} (step {step})");
 }

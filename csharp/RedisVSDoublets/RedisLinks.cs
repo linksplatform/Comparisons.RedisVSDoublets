@@ -77,58 +77,80 @@ public sealed class RedisLinks : RedisStore, IBenchedLinks
     {
         if (id != Any)
         {
-            Reply(Commands.HashGetAsync("links", id), link =>
-            {
-                if (!link.IsNull && Parse(id, link) is var found
-                    && (source == Any || source == found.Source) && (target == Any || target == found.Target))
-                {
-                    visit(found);
-                }
-            });
+            EachById(id, source, target, visit);
         }
         else if (source != Any && target != Any)
         {
-            Reply(Commands.SetMembersAsync($"pair:{source}:{target}"), ids =>
-            {
-                foreach (var found in ids)
-                {
-                    visit(new Link((ulong)found, source, target));
-                }
-            });
+            EachByPair(source, target, visit);
         }
         else if (source != Any)
         {
-            Reply(Commands.HashGetAllAsync($"out:{source}"), links =>
-            {
-                foreach (var link in links)
-                {
-                    visit(new Link((ulong)link.Name, source, (ulong)link.Value));
-                }
-            });
+            EachBySource(source, visit);
         }
         else if (target != Any)
         {
-            Reply(Commands.HashGetAllAsync($"in:{target}"), links =>
-            {
-                foreach (var link in links)
-                {
-                    visit(new Link((ulong)link.Name, (ulong)link.Value, target));
-                }
-            });
+            EachByTarget(target, visit);
         }
         else
         {
-            Reply(Commands.HashGetAllAsync("links"), links =>
-            {
-                foreach (var link in links)
-                {
-                    visit(Parse((ulong)link.Name, link.Value));
-                }
-            });
+            EachLink(visit);
         }
     }
 
     public ulong Count() => (ulong)Database.HashLength("links");
+
+    /// <summary><c>Each(id, source, target)</c>: <c>HGET links id</c>, visited if the link matches the pattern.</summary>
+    private void EachById(ulong id, ulong source, ulong target, Action<Link> visit) =>
+        Reply(Commands.HashGetAsync("links", id), link =>
+        {
+            if (!link.IsNull && Parse(id, link) is var found && Matches(found, source, target))
+            {
+                visit(found);
+            }
+        });
+
+    /// <summary><c>Each(*, source, target)</c>: <c>SMEMBERS pair:{source}:{target}</c>.</summary>
+    private void EachByPair(ulong source, ulong target, Action<Link> visit) =>
+        Reply(Commands.SetMembersAsync($"pair:{source}:{target}"), ids =>
+        {
+            foreach (var found in ids)
+            {
+                visit(new Link((ulong)found, source, target));
+            }
+        });
+
+    /// <summary><c>Each(*, source, *)</c>: <c>HGETALL out:{source}</c>.</summary>
+    private void EachBySource(ulong source, Action<Link> visit) =>
+        Reply(Commands.HashGetAllAsync($"out:{source}"), links =>
+        {
+            foreach (var link in links)
+            {
+                visit(new Link((ulong)link.Name, source, (ulong)link.Value));
+            }
+        });
+
+    /// <summary><c>Each(*, *, target)</c>: <c>HGETALL in:{target}</c>.</summary>
+    private void EachByTarget(ulong target, Action<Link> visit) =>
+        Reply(Commands.HashGetAllAsync($"in:{target}"), links =>
+        {
+            foreach (var link in links)
+            {
+                visit(new Link((ulong)link.Name, (ulong)link.Value, target));
+            }
+        });
+
+    /// <summary><c>Each(*, *, *)</c>: <c>HGETALL links</c>.</summary>
+    private void EachLink(Action<Link> visit) =>
+        Reply(Commands.HashGetAllAsync("links"), links =>
+        {
+            foreach (var link in links)
+            {
+                visit(Parse((ulong)link.Name, link.Value));
+            }
+        });
+
+    private bool Matches(Link link, ulong source, ulong target) =>
+        (source == Any || source == link.Source) && (target == Any || target == link.Target);
 
     /// <summary>Reads the <c>"source:target"</c> value of the link <paramref name="id"/>.</summary>
     private static Link Parse(ulong id, RedisValue link)
