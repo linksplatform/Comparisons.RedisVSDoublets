@@ -2,11 +2,12 @@
 """Prints the `# key: value` lines that describe a benchmark run, for
 `scripts/benchmark_report.py`.
 
-Usage: benchmark_header.py redis|doublets
+Usage: benchmark_header.py rust|csharp redis|doublets
 
 The sizes come from `BENCHMARK_LINKS` and `BENCHMARK_BACKGROUND_LINKS` (the
 defaults of the benchmarks), the Redis server from `REDIS_URL` (default
-`redis://localhost:6379`), whose version is asked with `INFO server`.
+`redis://localhost:6379`), whose version is asked with `INFO server`, the
+runtime from `rustc --version` or `dotnet --version`, and the commit from git.
 """
 
 from __future__ import annotations
@@ -72,20 +73,38 @@ def receive(server: socket.socket) -> bytes:
     return chunk
 
 
-def cpu() -> str:
+# The command that prints the version of the runtime of every language.
+RUNTIMES = {"rust": ["rustc", "--version"], "csharp": ["dotnet", "--version"]}
+
+
+def output(arguments: list[str]) -> str:
+    """The standard output of a command, or an empty string if it cannot run or fails."""
     try:
-        output = subprocess.run(["lscpu"], capture_output=True, text=True, check=False).stdout  # nosec B603 B607
+        finished = subprocess.run(arguments, capture_output=True, text=True, check=False)  # nosec B603
     except OSError:
-        return "unknown"
-    match = re.search(r"^Model name:\s*(.+)$", output, re.MULTILINE)
+        return ""
+    return finished.stdout.strip() if finished.returncode == 0 else ""
+
+
+def cpu() -> str:
+    match = re.search(r"^Model name:\s*(.+)$", output(["lscpu"]), re.MULTILINE)
     return match.group(1).strip() if match else "unknown"
 
 
-def header(backend: str, environment: os._Environ[str] | dict[str, str] = os.environ) -> list[str]:
+def runtime(language: str) -> str:
+    version = output(RUNTIMES[language])
+    if not version:
+        return "unknown"
+    return f".NET SDK {version}" if language == "csharp" else version
+
+
+def header(language: str, backend: str, environment: os._Environ[str] | dict[str, str] = os.environ) -> list[str]:
     lines = [
         f"# links: {environment.get('BENCHMARK_LINKS', '100')}",
         f"# background links: {environment.get('BENCHMARK_BACKGROUND_LINKS', '1000')}",
         f"# cpu: {cpu()}",
+        f"# runtime: {runtime(language)}",
+        f"# commit: {output(['git', 'rev-parse', 'HEAD']) or 'unknown'}",
     ]
     if backend == "redis":
         lines.append(f"# redis: {redis_version(environment.get('REDIS_URL', 'redis://localhost:6379'))}")
@@ -98,9 +117,9 @@ def header(backend: str, environment: os._Environ[str] | dict[str, str] = os.env
 
 
 def main(arguments: list[str]) -> None:
-    if len(arguments) != 1 or arguments[0] not in ("redis", "doublets"):
-        sys.exit("usage: benchmark_header.py redis|doublets")
-    print("\n".join(header(arguments[0])), flush=True)
+    if len(arguments) != 2 or arguments[0] not in RUNTIMES or arguments[1] not in ("redis", "doublets"):
+        sys.exit("usage: benchmark_header.py rust|csharp redis|doublets")
+    print("\n".join(header(arguments[0], arguments[1])), flush=True)
 
 
 if __name__ == "__main__":

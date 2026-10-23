@@ -18,7 +18,7 @@ background links and suite:
 - `<charts>/bench_<language>_<suite>_<background links>.png` (linear scale) and
   `<charts>/bench_<language>_<suite>_log_scale_<background links>.png` (log scale).
 
-Usage: benchmark_report.py RESULTS_DIR [--readme README.md] [--charts Docs]
+Usage: benchmark_report.py RESULTS_DIR [--readme README.md] [--charts docs]
 """
 
 from __future__ import annotations
@@ -308,10 +308,12 @@ def provenance(language: str, result: Result, links: int, root: Path = ROOT) -> 
     source = f"[GitHub Actions run]({run})" if run else "a local run"
     if date:
         source += f" on {date}"
+    runtimes = " and ".join(sorted({redis.get("runtime", "unknown"), doublets.get("runtime", "unknown")}))
+    commits = " and ".join(sorted({redis.get("commit", "unknown")[:7], doublets.get("commit", "unknown")[:7]}))
     return (
         f"_Median time of one iteration with {links:,} operations. "
         f"Redis {redis.get('redis', 'unknown version')} through {client}; {library}. "
-        f"{machine}, {source}._"
+        f"{machine}, runtime {runtimes}, commit {commits}, {source}._"
     )
 
 

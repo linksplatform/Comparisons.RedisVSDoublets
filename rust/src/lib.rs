@@ -43,10 +43,10 @@
 //! | `Redis_Transaction`        | Redis server, `MULTI`/`EXEC` per iteration | in the server's RAM at `EXEC`       |
 //! | `Redis_Pipeline`           | Redis server, one pipeline per iteration  | in the server's RAM at the commit    |
 //!
-//! Redis keeps its data in RAM as well; whether it also writes it to disk
-//! depends on the server's configuration, which the benchmarks do not change
-//! (the official Docker image saves RDB snapshots in the background and has
-//! no append-only file).
+//! Redis keeps its data in RAM as well. Whether it also writes it to disk
+//! depends on the server's configuration, which the benchmarks do not change;
+//! the CI switches off the RDB snapshots of the official Docker image (which
+//! has no append-only file) before the benchmarks, as Doublets is volatile.
 //!
 //! ## How the Benchmark Works
 //!

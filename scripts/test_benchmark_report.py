@@ -25,6 +25,8 @@ METADATA = {
     "links": "1000",
     "background links": "10000",
     "cpu": "AMD EPYC 7763 64-Core Processor",
+    "runtime": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "commit": "0123456789abcdef0123456789abcdef01234567",
     "date": "2026-10-23",
     "run": "https://github.com/owner/repo/actions/runs/1",
 }
@@ -234,16 +236,17 @@ class Markdown(unittest.TestCase):
         self.assertEqual(
             report.provenance("rust", self.results[("rust", 10000)], 1000),
             f"_Median time of one iteration with 1,000 operations. Redis 8.10.2 through {client}; {library}. "
-            "CPU AMD EPYC 7763 64-Core Processor, "
+            "CPU AMD EPYC 7763 64-Core Processor, runtime rustc 1.98.1 (48a229cea 2026-09-01), commit 0123456, "
             "[GitHub Actions run](https://github.com/owner/repo/actions/runs/1) on 2026-10-23._",
         )
 
     def test_provenance_of_a_local_run_on_two_machines(self):
         result = self.results[("rust", 10000)]
-        result["metadata"]["doublets"] = {"cpu": "Apple M3"}
+        result["metadata"]["doublets"] = {"cpu": "Apple M3", "runtime": "rustc 1.98.1", "commit": "fedcba9876"}
         result["metadata"]["redis"] = {"cpu": "AMD EPYC 7763 64-Core Processor", "redis": "8.10.2"}
         self.assertIn(
-            "CPU AMD EPYC 7763 64-Core Processor (Redis) and Apple M3 (Doublets), a local run._",
+            "CPU AMD EPYC 7763 64-Core Processor (Redis) and Apple M3 (Doublets), "
+            "runtime rustc 1.98.1 and unknown, commit fedcba9 and unknown, a local run._",
             report.provenance("rust", result, 1000),
         )
 
@@ -263,14 +266,14 @@ class Markdown(unittest.TestCase):
             )
 
     def test_section_has_every_language_and_suite(self):
-        generated = report.section(self.results, "Docs")
+        generated = report.section(self.results, "docs")
         self.assertIn("### Rust\n\n#### Rust: 10,000 background links, 1,000 operations per iteration\n", generated)
         self.assertIn("### C#\n\n_No results yet._\n", generated)
         self.assertIn("Links storage:\n\n| Operation |", generated)
         self.assertIn("Typical Redis usage:\n\n| Operation |", generated)
         self.assertIn(
             "![Rust, Typical Redis usage, 10,000 background links, 1,000 operations per iteration, log scale]"
-            "(Docs/bench_rust_usage_log_scale_10000.png)",
+            "(docs/bench_rust_usage_log_scale_10000.png)",
             generated,
         )
         self.assertTrue(generated.startswith(report.LINT_OFF))
@@ -278,8 +281,8 @@ class Markdown(unittest.TestCase):
 
     def test_replacing_the_section_twice_gives_the_same_document(self):
         document = f"# Title\n\n{report.START_MARKER}\nold\n{report.END_MARKER}\n\n## Limitations\n"
-        once = report.replace_section(document, report.section(self.results, "Docs"))
-        self.assertEqual(report.replace_section(once, report.section(self.results, "Docs")), once)
+        once = report.replace_section(document, report.section(self.results, "docs"))
+        self.assertEqual(report.replace_section(once, report.section(self.results, "docs")), once)
         self.assertNotIn("old", once)
         self.assertTrue(once.startswith("# Title\n\n") and once.endswith("\n\n## Limitations\n"))
 
@@ -302,7 +305,7 @@ class Charts(unittest.TestCase):
             self.skipTest("matplotlib is not installed")
         with tempfile.TemporaryDirectory() as directory:
             write_results(directory, BOTH)
-            written = report.charts(report.load(Path(directory)), Path(directory) / "Docs")
+            written = report.charts(report.load(Path(directory)), Path(directory) / "docs")
             self.assertEqual(
                 [path.name for path in written],
                 [

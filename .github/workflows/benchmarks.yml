@@ -79,7 +79,8 @@ jobs:
         background: ${{ fromJSON(needs.plan.outputs.backgrounds) }}
     services:
       redis:
-        # Default settings of the official image; the Doublets jobs need no server.
+        # The official image, whose snapshots are switched off below; the
+        # Doublets jobs need no server.
         image: ${{ matrix.backend == 'redis' && 'redis:8.10.2@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901' || '' }}
         ports: ['6379:6379']
         options: --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 5s --health-retries 30
@@ -97,7 +98,7 @@ jobs:
       - if: matrix.language == 'rust'
         uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
-          toolchain: stable
+          toolchain: '1.98.1'
       - if: matrix.language == 'rust'
         uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
@@ -105,6 +106,17 @@ jobs:
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - if: matrix.language == 'rust'
         run: cargo bench --locked --manifest-path rust/Cargo.toml --no-run
+      - name: Disable the persistence of Redis
+        if: matrix.backend == 'redis'
+        env:
+          REDIS_CONTAINER: ${{ job.services.redis.id }}
+        run: |
+          # Doublets is volatile, so Redis must not write snapshots or an
+          # append-only file in the measured time. A service container
+          # cannot get command line arguments, so the server is reconfigured.
+          docker exec "$REDIS_CONTAINER" redis-cli CONFIG SET save ''
+          docker exec "$REDIS_CONTAINER" redis-cli CONFIG SET appendonly no
+          docker exec "$REDIS_CONTAINER" redis-cli CONFIG GET save
       - if: matrix.language == 'csharp'
         uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
@@ -122,7 +134,7 @@ jobs:
           echo "NAME=$name" >> "$GITHUB_ENV"
           mkdir results
           {
-            python3 scripts/benchmark_header.py "$BENCHMARK_BACKEND"
+            python3 scripts/benchmark_header.py "$LANGUAGE" "$BENCHMARK_BACKEND"
             if [ "$LANGUAGE" = rust ]; then
               (cd rust && cargo bench --locked --bench bench -- --output-format bencher --noplot)
             else
@@ -160,7 +172,7 @@ jobs:
       - name: Generate the tables and charts
         run: |
           set -o pipefail
-          python scripts/benchmark_report.py results --readme README.md --charts Docs | tee -a "$GITHUB_STEP_SUMMARY"
+          python scripts/benchmark_report.py results --readme README.md --charts docs | tee -a "$GITHUB_STEP_SUMMARY"
           npx --yes markdownlint-cli@0.49.1 README.md
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
@@ -168,7 +180,7 @@ jobs:
           path: |
             results
             README.md
-            Docs/bench_*.png
+            docs/bench_*.png
           if-no-files-found: error
 
   publish:
@@ -198,13 +210,16 @@ jobs:
           path: ${{ runner.temp }}/results
       - name: Commit the results to main
         env:
-          GH_TOKEN: ${{ github.token }}
+          # The branch protection of main restricts who may push. The
+          # workflow token can push only if GitHub Actions is allowed to;
+          # otherwise a token of an allowed account is needed (see below).
+          GH_TOKEN: ${{ secrets.BENCHMARK_PUSH_TOKEN || github.token }}
         run: |
           gh auth setup-git
           git config user.email "linksplatform@gmail.com"
           git config user.name "LinksPlatformBencher"
-          python scripts/benchmark_report.py "$RUNNER_TEMP/results" --readme README.md --charts Docs > /dev/null
-          git add README.md Docs
+          python scripts/benchmark_report.py "$RUNNER_TEMP/results" --readme README.md --charts docs > /dev/null
+          git add README.md docs
           if git diff --staged --quiet; then
             echo "No changes to commit"
             exit 0
@@ -212,4 +227,7 @@ jobs:
           git commit -m "Update benchmark results"
           # Another commit may have reached main in the meantime.
           git pull --rebase origin main
-          git push origin HEAD:main
+          if ! git push origin HEAD:main; then
+            echo "::error title=Cannot publish the benchmark results::The push to main was rejected, most likely by the branch protection rule of main, which restricts who can push. A maintainer has to either add GitHub Actions (github-actions) to the accounts that may push to main in Settings > Branches, or save a token of an account that may push (contents: write) as the repository secret BENCHMARK_PUSH_TOKEN. Until then, the results are in the artifact \"Benchmark report\" of this run."
+            exit 1
+          fi

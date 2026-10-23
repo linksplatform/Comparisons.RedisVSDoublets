@@ -3,6 +3,7 @@
 import socket
 import threading
 import unittest
+from unittest import mock
 
 import benchmark_header as header
 
@@ -55,11 +56,23 @@ class Protocol(unittest.TestCase):
 
 class Header(unittest.TestCase):
     def test_defaults(self):
-        lines = header.header("doublets", {})
+        lines = header.header("rust", "doublets", {})
         self.assertEqual(lines[:2], ["# links: 100", "# background links: 1000"])
         self.assertTrue(lines[2].startswith("# cpu: "))
-        self.assertRegex(lines[3], r"^# date: \d{4}-\d{2}-\d{2}$")
-        self.assertEqual(len(lines), 4)
+        self.assertRegex(lines[3], r"^# runtime: (rustc \d|unknown)")
+        self.assertRegex(lines[4], r"^# commit: ([0-9a-f]{40}|unknown)$")
+        self.assertRegex(lines[5], r"^# date: \d{4}-\d{2}-\d{2}$")
+        self.assertEqual(len(lines), 6)
+
+    def test_the_dotnet_sdk_is_named(self):
+        with mock.patch.object(header, "output", return_value="10.0.112"):
+            self.assertEqual(header.runtime("csharp"), ".NET SDK 10.0.112")
+        with mock.patch.object(header, "output", return_value=""):
+            self.assertEqual(header.runtime("csharp"), "unknown")
+
+    def test_a_missing_command_gives_no_output(self):
+        self.assertEqual(header.output(["a-command-that-does-not-exist"]), "")
+        self.assertEqual(header.output(["git", "a-subcommand-that-does-not-exist"]), "")
 
     def test_a_ci_run_is_linked(self):
         url, _ = serve([b"$%d\r\n%s\r\n" % (len(INFO), INFO)])
@@ -70,7 +83,7 @@ class Header(unittest.TestCase):
             "GITHUB_RUN_ID": "7",
             "GITHUB_REPOSITORY": "owner/repo",
         }
-        lines = header.header("redis", environment)
+        lines = header.header("csharp", "redis", environment)
         self.assertEqual(lines[:2], ["# links: 1000", "# background links: 100000"])
         self.assertIn("# redis: 8.10.2", lines)
         self.assertEqual(lines[-1], "# run: https://github.com/owner/repo/actions/runs/7")
