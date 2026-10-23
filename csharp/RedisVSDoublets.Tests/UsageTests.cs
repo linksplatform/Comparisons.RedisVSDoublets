@@ -37,7 +37,7 @@ public class UsageTests
             store.Increment(2);
             store.Increment(2);
             store.Get(2, values.Add);
-            store.Set(3, 0);
+            store.Set(3, 30);
             store.Delete(3);
             store.Delete(3);
             store.Get(3, values.Add);
@@ -233,6 +233,19 @@ public class UsageTests
     }
 
     /// <summary>All modes share one database, so they run one after another in one test.</summary>
+    [Fact]
+    public void DoubletsRejectsNumbersOutsideTheRawRange()
+    {
+        using var store = new DoubletsUsage();
+        store.Fork(1);
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.Set(0, 1));
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.Set(1, 0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.Add(ulong.MaxValue));
+        store.Set(1, DoubletsUsage.MaxNumber);
+        Assert.Throws<ArgumentOutOfRangeException>(() => store.Increment(1));
+        Assert.Equal([(1UL, DoubletsUsage.MaxNumber)], store.Snapshot().Values);
+    }
+
     [Fact]
     public void Redis()
     {

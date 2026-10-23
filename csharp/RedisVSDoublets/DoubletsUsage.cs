@@ -11,9 +11,10 @@ namespace Comparisons.RedisVSDoublets;
 /// (<c>UnitedMemoryLinks</c> with external references).
 /// </summary>
 /// <remarks>
-/// Numbers (keys, values and members) are stored as external references (raw numbers, see <see cref="Hybrid{T}"/>), which
-/// never collide with link ids. Doublets keeps every <c>(source, target)</c> pair once and indexes links by source and by
-/// target, so a lookup by key or by member is a search of an index tree, and every other step follows a link by its id.
+/// Numbers (keys, values and members) from 1 to <see cref="MaxNumber"/> are stored as external references (raw numbers,
+/// see <see cref="Hybrid{T}"/>), which never collide with link ids. Doublets keeps every <c>(source, target)</c> pair
+/// once and indexes links by source and by target, so a lookup by key or by member is a search of an index tree, and
+/// every other step follows a link by its id.
 /// <list type="table">
 /// <item><term>key-value</term><description>the link <c>(key, value)</c>; only these links have a raw number as the
 /// source, so <c>GET key</c> is the search <c>(*, key, *)</c></description></item>
@@ -46,7 +47,14 @@ public sealed class DoubletsUsage : IBenchedUsage
         UnitedMemoryLinks<ulong>.DefaultLinksSizeStep, new LinksConstants<ulong>(enableExternalReferencesSupport: true),
         IndexTreeType.Default);
 
-    private static ulong Raw(ulong number) => new Hybrid<ulong>(number, isExternal: true).Value;
+    /// <summary>The largest number that can be stored: <see cref="long.MaxValue"/>, the largest value of a Redis counter.</summary>
+    public const ulong MaxNumber = long.MaxValue;
+
+    /// <summary>The raw number (external reference) of <paramref name="number"/>, which must be in
+    /// <c>1..=</c><see cref="MaxNumber"/>, as in the Rust benchmarks.</summary>
+    private static ulong Raw(ulong number) => number is >= 1 and <= MaxNumber
+        ? new Hybrid<ulong>(number, isExternal: true).Value
+        : throw new ArgumentOutOfRangeException(nameof(number), number, $"Doublets stores the numbers 1..={MaxNumber}");
 
     private static ulong Number(ulong raw) => (ulong)new Hybrid<ulong>(raw, isExternal: true).AbsoluteValue;
 
