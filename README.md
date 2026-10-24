@@ -149,10 +149,10 @@ consumed (`black_box` in Rust, a checksum in C#).
   their keys from the link, so they do not run in a Redis Cluster.
 - The benchmarks and the tests empty the Redis database of `REDIS_URL`
   (`FLUSHDB`), so it must be a disposable database.
-- The stores of doublets 0.5.0 to 0.8.0 (Rust) fail after 1,040,384 links, because they
-  take the part of the memory that `platform-mem` returns after growing it; the
-  benchmarks wrap the memory in [`memory::Whole`](rust/src/memory.rs), which
-  returns the whole memory, and
+- The stores of doublets 0.5.0 to 0.8.0 (Rust) fail after 1,040,384 links,
+  because they take the part of the memory that `platform-mem` returns after
+  growing it; the benchmarks wrap the memory in
+  [`memory::Whole`](rust/src/memory.rs), which returns the whole memory, and
   [`experiments/check-full-size.sh`](experiments/check-full-size.sh) checks
   the largest scheduled size.
 
