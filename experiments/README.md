@@ -12,6 +12,7 @@ They are not part of the CI. Outputs are in [`logs`](logs).
 | [`csharp-usage-index-trees`](csharp-usage-index-trees) | the C# united store's index tree types with the set links of the usage benchmarks (all members share one source) |
 | [`rust-plain-memory-capacity`](rust-plain-memory-capacity) | whether the Rust stores of doublets grow beyond 2^20 links with the plain memory of platform-mem, without [`Whole`](../rust/src/memory.rs) |
 | [`check-full-size.sh`](check-full-size.sh) | the in-memory Doublets stores of both languages with the largest scheduled size |
+| [`deps/versions_report.py`](deps/versions_report.py) | every pinned dependency of the repository against the newest version of its registry, as Markdown tables ([issue #13](https://github.com/linksplatform/Comparisons.RedisVSDoublets/issues/13), output in [`dev/log/issues/13/pulls/14/versions.md`](../dev/log/issues/13/pulls/14/versions.md)) |
 
 External references
 ([`logs/csharp-external-references.log`](logs/csharp-external-references.log)):
