@@ -1,15 +1,32 @@
 # links: 100
-# background: 1000
-# samples: 10
-# cpu: AMD EPYC Processor (with IBPB)
-# date: 2026-10-07
-# commit: 745703252120ce2321961e423c626f4d28cb27fa
-# runtime: .NET SDK 10.0.112
-test Create/Doublets ... bench: 785400 ns/iter (+/- 80069)
-test Update/Doublets ... bench: 1200900 ns/iter (+/- 217113)
-test Delete/Doublets ... bench: 595600 ns/iter (+/- 344994)
-test Each_All/Doublets ... bench: 339750 ns/iter (+/- 1970394)
-test Each_Identity/Doublets ... bench: 60150 ns/iter (+/- 3721)
-test Each_Concrete/Doublets ... bench: 158200 ns/iter (+/- 7853)
-test Each_Outgoing/Doublets ... bench: 145550 ns/iter (+/- 11673)
-test Each_Incoming/Doublets ... bench: 128450 ns/iter (+/- 64979)
+# background links: 1000
+# cpu: AMD EPYC 9V74 80-Core Processor
+# runtime: .NET SDK 10.0.402
+# commit: 6ef0747d8c323e90e8bf4d38d17960ebfd6f3c57
+# date: 2026-10-23
+# run: https://github.com/linksplatform/Comparisons.RedisVSDoublets/actions/runs/40029663341
+test Create/Doublets_United_Volatile ... bench:      43,644 ns/iter (+/- 1,337)
+test Create/Doublets_Split_Volatile ... bench:      11,930 ns/iter (+/- 389)
+test Delete/Doublets_United_Volatile ... bench:      18,880 ns/iter (+/- 747)
+test Delete/Doublets_Split_Volatile ... bench:      12,684 ns/iter (+/- 505)
+test Each_Identity/Doublets_United_Volatile ... bench:       3,425 ns/iter (+/- 170)
+test Each_Identity/Doublets_Split_Volatile ... bench:       5,052 ns/iter (+/- 501)
+test Each_Concrete/Doublets_United_Volatile ... bench:       4,819 ns/iter (+/- 246)
+test Each_Concrete/Doublets_Split_Volatile ... bench:       5,313 ns/iter (+/- 189)
+test Each_Outgoing/Doublets_United_Volatile ... bench:       6,321 ns/iter (+/- 261)
+test Each_Outgoing/Doublets_Split_Volatile ... bench:       5,566 ns/iter (+/- 297)
+test Each_Incoming/Doublets_United_Volatile ... bench:      10,368 ns/iter (+/- 413)
+test Each_Incoming/Doublets_Split_Volatile ... bench:       5,577 ns/iter (+/- 195)
+test Each_All/Doublets_United_Volatile ... bench:      10,786 ns/iter (+/- 564)
+test Each_All/Doublets_Split_Volatile ... bench:       9,585 ns/iter (+/- 517)
+test Update/Doublets_United_Volatile ... bench:      56,304 ns/iter (+/- 1,541)
+test Update/Doublets_Split_Volatile ... bench:      11,146 ns/iter (+/- 414)
+test KeyValue_Get/Doublets_United_Volatile ... bench:       9,239 ns/iter (+/- 477)
+test KeyValue_Set/Doublets_United_Volatile ... bench:      76,834 ns/iter (+/- 876)
+test KeyValue_Delete/Doublets_United_Volatile ... bench:      31,339 ns/iter (+/- 605)
+test Counter_Increment/Doublets_United_Volatile ... bench:      78,912 ns/iter (+/- 2,323)
+test Queue_Push/Doublets_United_Volatile ... bench:     222,020 ns/iter (+/- 2,601)
+test Queue_Pop/Doublets_United_Volatile ... bench:      85,565 ns/iter (+/- 2,544)
+test Set_Add/Doublets_United_Volatile ... bench:      49,563 ns/iter (+/- 646)
+test Set_Remove/Doublets_United_Volatile ... bench:      32,205 ns/iter (+/- 707)
+test Set_Contains/Doublets_United_Volatile ... bench:       5,573 ns/iter (+/- 173)

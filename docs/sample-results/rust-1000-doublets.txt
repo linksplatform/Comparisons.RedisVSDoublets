@@ -1,15 +1,49 @@
 # links: 100
-# background: 1000
-# samples: 10
-# cpu: AMD EPYC Processor (with IBPB)
-# date: 2026-10-07
-# commit: 745703252120ce2321961e423c626f4d28cb27fa
+# background links: 1000
+# cpu: AMD EPYC 7763 64-Core Processor
 # runtime: rustc 1.98.1 (48a229cea 2026-09-01)
-test Create/Doublets ... bench: 12223 ns/iter (+/- 19451)
-test Update/Doublets ... bench: 52358 ns/iter (+/- 28693)
-test Delete/Doublets ... bench: 24992 ns/iter (+/- 2669)
-test Each_All/Doublets ... bench: 8486 ns/iter (+/- 3224)
-test Each_Identity/Doublets ... bench: 1653 ns/iter (+/- 39)
-test Each_Concrete/Doublets ... bench: 4604 ns/iter (+/- 199)
-test Each_Outgoing/Doublets ... bench: 4363 ns/iter (+/- 168)
-test Each_Incoming/Doublets ... bench: 7774 ns/iter (+/- 416)
+# commit: 6ef0747d8c323e90e8bf4d38d17960ebfd6f3c57
+# date: 2026-10-23
+# run: https://github.com/linksplatform/Comparisons.RedisVSDoublets/actions/runs/40029663341
+test Create/Doublets_United_Volatile ... bench:       5,824 ns/iter (+/- 46)
+test Create/Doublets_Split_Volatile ... bench:       4,852 ns/iter (+/- 38)
+
+test Delete/Doublets_United_Volatile ... bench:      12,915 ns/iter (+/- 194)
+test Delete/Doublets_Split_Volatile ... bench:       9,709 ns/iter (+/- 72)
+
+test Each_Identity/Doublets_United_Volatile ... bench:       1,311 ns/iter (+/- 13)
+test Each_Identity/Doublets_Split_Volatile ... bench:       1,337 ns/iter (+/- 6)
+
+test Each_Concrete/Doublets_United_Volatile ... bench:       2,367 ns/iter (+/- 12)
+test Each_Concrete/Doublets_Split_Volatile ... bench:       2,027 ns/iter (+/- 15)
+
+test Each_Outgoing/Doublets_United_Volatile ... bench:       4,405 ns/iter (+/- 13)
+test Each_Outgoing/Doublets_Split_Volatile ... bench:       1,708 ns/iter (+/- 29)
+
+test Each_Incoming/Doublets_United_Volatile ... bench:       4,533 ns/iter (+/- 17)
+test Each_Incoming/Doublets_Split_Volatile ... bench:       1,741 ns/iter (+/- 8)
+
+test Each_All/Doublets_United_Volatile ... bench:       1,591 ns/iter (+/- 66)
+test Each_All/Doublets_Split_Volatile ... bench:      10,365 ns/iter (+/- 24)
+
+test Update/Doublets_United_Volatile ... bench:      22,336 ns/iter (+/- 203)
+test Update/Doublets_Split_Volatile ... bench:       3,759 ns/iter (+/- 22)
+
+test KeyValue_Get/Doublets_United_Volatile ... bench:       4,861 ns/iter (+/- 28)
+
+test KeyValue_Set/Doublets_United_Volatile ... bench:      35,441 ns/iter (+/- 220)
+
+test KeyValue_Delete/Doublets_United_Volatile ... bench:      17,455 ns/iter (+/- 121)
+
+test Counter_Increment/Doublets_United_Volatile ... bench:      39,652 ns/iter (+/- 197)
+
+test Queue_Push/Doublets_United_Volatile ... bench:     101,347 ns/iter (+/- 1,072)
+
+test Queue_Pop/Doublets_United_Volatile ... bench:      44,167 ns/iter (+/- 453)
+
+test Set_Add/Doublets_United_Volatile ... bench:      12,243 ns/iter (+/- 92)
+
+test Set_Remove/Doublets_United_Volatile ... bench:      18,002 ns/iter (+/- 98)
+
+test Set_Contains/Doublets_United_Volatile ... bench:       2,975 ns/iter (+/- 8)
+

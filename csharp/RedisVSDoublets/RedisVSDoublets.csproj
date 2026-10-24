@@ -1,16 +1,25 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RootNamespace>Comparisons.RedisVSDoublets</RootNamespace>
+    <AssemblyName>redis-vs-doublets</AssemblyName>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
-    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
     <InvariantGlobalization>true</InvariantGlobalization>
+    <RestorePackagesWithLockFile>true</RestorePackagesWithLockFile>
   </PropertyGroup>
+
   <ItemGroup>
-    <PackageReference Include="StackExchange.Redis" Version="3.3.1" />
     <PackageReference Include="Platform.Data.Doublets" Version="0.18.1" />
-    <EmbeddedResource Include="../../redis/*.lua" Link="%(Filename)%(Extension)" />
+    <PackageReference Include="StackExchange.Redis" Version="3.4.20" />
   </ItemGroup>
+
+  <ItemGroup>
+    <!-- The Redis functions shared with the Rust benchmarks. -->
+    <EmbeddedResource Include="..\..\redis\links.lua" LogicalName="links.lua" />
+  </ItemGroup>
+
 </Project>

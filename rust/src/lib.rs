@@ -1,212 +1,140 @@
-use doublets::{Doublets, Links, data::Flow, mem::Global, unit};
-use std::sync::atomic::{AtomicU64, Ordering};
+//! # Comparisons.RedisVSDoublets
+//!
+//! This crate measures how long the same work takes when the data is kept in
+//! Redis and when it is kept in an in-memory Doublets store, in two kinds of
+//! benchmarks.
+//!
+//! ## Links
+//!
+//! Both databases store links `(id, source, target)` and implement the same
+//! [`Doublets`](doublets::Doublets) trait, and every benchmark calls the same
+//! trait methods on every backend:
+//!
+//! - **[`redis_impl`]** - how Redis implements each operation (native commands
+//!   and the functions of `redis/links.lua`, through redis-rs)
+//! - **[`doublets_impl`]** - how Doublets implements each operation (direct
+//!   access to its in-process data structures)
+//!
+//! | Operation       | Method                  | Description                                    |
+//! |-----------------|-------------------------|------------------------------------------------|
+//! | Create          | `create_point()`        | Insert a point link (id = source = target)     |
+//! | Update          | `update(id, src, tgt)`  | Modify source and target of existing link      |
+//! | Delete          | `delete(id)`            | Remove a link by its ID                        |
+//! | Each All        | `each(handler)`         | Iterate all links matching `[*, *, *]`         |
+//! | Each Identity   | `each_by([id,*,*], h)`  | Find links by ID constraint                    |
+//! | Each Concrete   | `each_by([*,s,t], h)`   | Find links by source AND target                |
+//! | Each Outgoing   | `each_by([*,s,*], h)`   | Find links by source (outgoing edges)          |
+//! | Each Incoming   | `each_by([*,*,t], h)`   | Find links by target (incoming edges)          |
+//!
+//! ## Typical Redis usage
+//!
+//! The data structures that Redis is typically used for (a key-value cache
+//! with counters, a queue and a set) behind the [`Usage`] trait: Redis keeps
+//! them in its native types, and Doublets reimplements them in links (see
+//! [`usage`]).
+//!
+//! ## Benchmarked Implementations
+//!
+//! | Implementation             | Backend                                   | A finished operation is              |
+//! |----------------------------|-------------------------------------------|--------------------------------------|
+//! | `Doublets_United_Volatile` | in-process, RAM, unit store               | in RAM, in the benchmark process     |
+//! | `Doublets_Split_Volatile`  | in-process, RAM, split store (links only) | in RAM, in the benchmark process     |
+//! | `Redis_NonTransaction`     | Redis server, one round trip per command  | in the server's RAM                  |
+//! | `Redis_Transaction`        | Redis server, `MULTI`/`EXEC` per iteration | in the server's RAM at `EXEC`       |
+//! | `Redis_Pipeline`           | Redis server, one pipeline per iteration  | in the server's RAM at the commit    |
+//!
+//! Redis keeps its data in RAM as well. Whether it also writes it to disk
+//! depends on the server's configuration, which the benchmarks do not change;
+//! the CI switches off the RDB snapshots of the official Docker image (which
+//! has no append-only file) before the benchmarks, as Doublets is volatile.
+//!
+//! ## How the Benchmark Works
+//!
+//! For every operation and store:
+//! 1. [`Benched::fork`] creates the background data (not measured)
+//! 2. every iteration runs the operation [`benchmark_links`] times between
+//!    [`Benched::begin`] and [`Benched::commit`] (measured), and then undoes
+//!    its changes (not measured), so all iterations start from the same data
+//! 3. [`Benched::unfork`] removes all data (not measured)
 
-pub type Result<T> = std::result::Result<T, Box<dyn std::error::Error>>;
-pub const ANY: usize = usize::MAX;
-// doublets 0.5.0 reserves 2^20 elements but loses its first 8192 on growth.
-pub const MAX_LINKS: usize = (1 << 20) - 8192 - 1;
-pub const OPERATIONS: [&str; 8] = [
-    "Create",
-    "Update",
-    "Delete",
-    "Each_All",
-    "Each_Identity",
-    "Each_Concrete",
-    "Each_Outgoing",
-    "Each_Incoming",
-];
+use std::{env, error, result};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
-pub struct Link(pub usize, pub usize, pub usize);
+pub use benched::Benched;
+use doublets::{
+    mem::Global,
+    split::{self, DataPart, IndexPart},
+    unit::{self, LinkPart},
+};
+pub use fork::Fork;
+pub use memory::Whole;
+pub use redis_impl::{Mode, Redis};
+pub use usage::{DoubletsUsage, RedisUsage, Snapshot, Usage};
 
-pub trait Store {
-    fn create(&mut self) -> Result<usize>;
-    fn update(&mut self, id: usize, source: usize, target: usize) -> Result<()>;
-    fn delete(&mut self, id: usize) -> Result<()>;
-    fn each(&mut self, query: [usize; 3], visit: &mut dyn FnMut(Link)) -> Result<()>;
-}
+mod benched;
+mod commands;
+pub mod doublets_impl;
+mod fork;
+pub mod memory;
+pub mod redis_impl;
+pub mod usage;
 
-pub struct DoubletsStore(unit::Store<usize, Global<unit::LinkPart<usize>>>);
-impl DoubletsStore {
-    pub fn new() -> Result<Self> {
-        Ok(Self(unit::Store::<usize, _>::new(Global::new())?))
-    }
-}
-impl Store for DoubletsStore {
-    fn create(&mut self) -> Result<usize> {
-        Ok(self.0.create_point()?)
-    }
-    fn update(&mut self, id: usize, source: usize, target: usize) -> Result<()> {
-        self.0.update(id, source, target)?;
-        Ok(())
-    }
-    fn delete(&mut self, id: usize) -> Result<()> {
-        self.0.delete(id)?;
-        Ok(())
-    }
-    fn each(&mut self, query: [usize; 3], visit: &mut dyn FnMut(Link)) -> Result<()> {
-        let query = query.map(|value| {
-            if value == ANY {
-                self.0.constants().any
-            } else {
-                value
-            }
-        });
-        self.0.each_by(query, |link| {
-            visit(Link(link.index, link.source, link.target));
-            Flow::Continue
-        });
-        Ok(())
-    }
+pub type Result<T, E = Box<dyn error::Error + Sync + Send>> = result::Result<T, E>;
+
+/// Number of point links (and keys, queue values and set members) that exist
+/// before the measured operations start.
+///
+/// Configurable via the `BENCHMARK_BACKGROUND_LINKS` environment variable.
+pub fn background_links() -> usize {
+    env_usize("BENCHMARK_BACKGROUND_LINKS", 1000)
 }
 
-pub struct RedisStore {
-    connection: redis::Connection,
-    prefix: String,
-    mutate: redis::Script,
-    query: redis::Script,
+/// Number of links (or keys, values and members) that each benchmark
+/// iteration creates, updates, deletes or looks up.
+///
+/// Configurable via the `BENCHMARK_LINKS` environment variable. Update and
+/// Delete work on existing background links, so this value must not exceed
+/// [`background_links`].
+pub fn benchmark_links() -> usize {
+    let links = env_usize("BENCHMARK_LINKS", 100);
+    assert!(
+        links <= background_links(),
+        "BENCHMARK_LINKS ({links}) must not exceed BENCHMARK_BACKGROUND_LINKS ({})",
+        background_links()
+    );
+    links
 }
-impl RedisStore {
-    pub fn new() -> Result<Self> {
-        static SEQUENCE: AtomicU64 = AtomicU64::new(0);
-        let url = std::env::var("REDIS_URL").unwrap_or_else(|_| "redis://127.0.0.1:6379".into());
-        let connection = redis::Client::open(url)?
-            .get_connection_with_timeout(std::time::Duration::from_secs(10))?;
-        connection.set_read_timeout(Some(std::time::Duration::from_secs(30)))?;
-        connection.set_write_timeout(Some(std::time::Duration::from_secs(30)))?;
-        let stamp = std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)?
-            .as_nanos();
-        Ok(Self {
-            connection,
-            prefix: format!(
-                "redis-doublets:{}:{stamp}:{}:",
-                std::process::id(),
-                SEQUENCE.fetch_add(1, Ordering::Relaxed)
-            ),
-            mutate: redis::Script::new(include_str!("../../redis/mutate.lua")),
-            query: redis::Script::new(include_str!("../../redis/each.lua")),
-        })
-    }
-    pub fn version(&mut self) -> Result<String> {
-        let info: String = redis::cmd("INFO")
-            .arg("server")
-            .query(&mut self.connection)?;
-        Ok(info
-            .lines()
-            .find_map(|line| line.strip_prefix("redis_version:"))
-            .ok_or("missing Redis version")?
-            .to_string())
-    }
-    fn mutation(&mut self, mode: &str, id: usize, source: usize, target: usize) -> Result<usize> {
-        Ok(self
-            .mutate
-            .key(&self.prefix)
-            .arg(mode)
-            .arg(id)
-            .arg(source)
-            .arg(target)
-            .invoke(&mut self.connection)?)
-    }
+
+/// The Redis server of the benchmarks and the tests: the `REDIS_URL`
+/// environment variable, by default `redis://localhost:6379`.
+///
+/// The benchmarks and the tests remove all keys of its database
+/// (`FLUSHDB`), so it must not hold any other data.
+pub fn redis_url() -> String {
+    env::var("REDIS_URL").unwrap_or_else(|_| "redis://localhost:6379".to_owned())
 }
-impl Store for RedisStore {
-    fn create(&mut self) -> Result<usize> {
-        self.mutation("create", 0, 0, 0)
-    }
-    fn update(&mut self, id: usize, source: usize, target: usize) -> Result<()> {
-        self.mutation("update", id, source, target)?;
-        Ok(())
-    }
-    fn delete(&mut self, id: usize) -> Result<()> {
-        self.mutation("delete", id, 0, 0)?;
-        Ok(())
-    }
-    fn each(&mut self, query: [usize; 3], visit: &mut dyn FnMut(Link)) -> Result<()> {
-        let args = query.map(|value| {
-            if value == ANY {
-                "*".into()
-            } else {
-                value.to_string()
-            }
-        });
-        let values: Vec<usize> = self
-            .query
-            .key(&self.prefix)
-            .arg(&args)
-            .invoke(&mut self.connection)?;
-        for link in values.as_chunks::<3>().0 {
-            visit(Link(link[0], link[1], link[2]));
-        }
-        Ok(())
-    }
-}
-impl Drop for RedisStore {
-    fn drop(&mut self) {
-        if let Err(error) = redis::Script::new(include_str!("../../redis/clear.lua"))
-            .key(&self.prefix)
-            .invoke::<i32>(&mut self.connection)
-        {
-            eprintln!("Redis cleanup failed: {error}");
-        }
+
+fn env_usize(name: &str, default: usize) -> usize {
+    match env::var(name) {
+        Ok(value) => value
+            .parse()
+            .unwrap_or_else(|_| panic!("{name} must be a non-negative integer, got `{value}`")),
+        Err(_) => default,
     }
 }
 
-pub fn exercise(store: &mut dyn Store, op: usize, background: usize, links: usize) -> Result<()> {
-    match op {
-        0 => {
-            for _ in 0..links {
-                std::hint::black_box(store.create()?);
-            }
-        }
-        // Unique asymmetric pairs, with existing endpoints; no merges or cascades.
-        1 => {
-            for id in 1..=links {
-                store.update(id, id, id % background + 1)?;
-            }
-        }
-        2 => {
-            for id in (background - links + 1..=background).rev() {
-                store.delete(id)?;
-            }
-        }
-        3 => store.each([ANY; 3], &mut |link| {
-            std::hint::black_box(link);
-        })?,
-        4..=7 => {
-            for id in 1..=links {
-                let query = match op {
-                    4 => [id, ANY, ANY],
-                    5 => [ANY, id, id],
-                    6 => [ANY, id, ANY],
-                    _ => [ANY, ANY, id],
-                };
-                store.each(query, &mut |link| {
-                    std::hint::black_box(link);
-                })?;
-            }
-        }
-        _ => return Err("unknown operation".into()),
-    }
-    Ok(())
-}
-pub fn undo(store: &mut dyn Store, op: usize, background: usize, links: usize) -> Result<()> {
-    match op {
-        0 => {
-            for id in (background + 1..=background + links).rev() {
-                store.delete(id)?;
-            }
-        }
-        1 => {
-            for id in 1..=links {
-                store.update(id, id, id)?;
-            }
-        }
-        2 => {
-            for _ in 0..links {
-                store.create()?;
-            }
-        }
-        _ => {}
-    }
-    Ok(())
-}
+// ============================================================================
+// BENCHMARKED STORAGE TYPE ALIASES
+// ============================================================================
+
+/// Doublets United (unit) store in RAM.
+///
+/// Each array element holds `(source, target)` of one link together with its
+/// index tree nodes; the id is the position in the array.
+pub type DoubletsUnitedVolatile<T = usize> = unit::Store<T, Whole<Global<LinkPart<T>>>>;
+
+/// Doublets Split store in RAM.
+///
+/// Data (`source`, `target`) and index trees are kept in separate memory
+/// regions.
+pub type DoubletsSplitVolatile<T = usize> =
+    split::Store<T, Whole<Global<DataPart<T>>>, Whole<Global<IndexPart<T>>>>;

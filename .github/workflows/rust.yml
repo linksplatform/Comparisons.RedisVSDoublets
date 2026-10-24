@@ -1,0 +1,61 @@
+name: Rust
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['rust/**', 'redis/**', 'rust-toolchain.toml', 'experiments/rust-*/**', '.github/workflows/rust.yml']
+  pull_request:
+    paths: ['rust/**', 'redis/**', 'rust-toolchain.toml', 'experiments/rust-*/**', '.github/workflows/rust.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: rust
+
+env:
+  CARGO_TERM_COLOR: always
+  # The tests empty this database (FLUSHDB).
+  REDIS_URL: redis://localhost:6379
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      redis:
+        image: redis:8.10.2@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        with:
+          components: rustfmt, clippy
+          toolchain: '1.98.1'
+      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        with:
+          workspaces: |
+            rust
+            experiments/rust-external-references
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - name: Format every Rust crate
+        run: |
+          cargo fmt --check
+          cargo fmt --check --manifest-path ../experiments/rust-external-references/Cargo.toml
+      - name: Clippy every Rust crate (warnings are errors)
+        run: |
+          cargo clippy --locked --release --all-targets -- -D warnings
+          cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-external-references/Cargo.toml -- -D warnings
+      - name: Test (all stores give the same results, including Redis in every mode)
+        run: cargo test --locked --release -- --include-ignored
+      - name: Build the benchmarks
+        run: cargo bench --locked --no-run

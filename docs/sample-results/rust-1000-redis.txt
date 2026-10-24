@@ -1,16 +1,76 @@
 # links: 100
-# background: 1000
-# samples: 10
-# cpu: AMD EPYC Processor (with IBPB)
-# date: 2026-10-07
-# commit: 745703252120ce2321961e423c626f4d28cb27fa
+# background links: 1000
+# cpu: AMD EPYC 7763 64-Core Processor
 # runtime: rustc 1.98.1 (48a229cea 2026-09-01)
-# redis: 7.4.2
-test Create/Redis ... bench: 10326429 ns/iter (+/- 15206894)
-test Update/Redis ... bench: 9499597 ns/iter (+/- 1227928)
-test Delete/Redis ... bench: 11812714 ns/iter (+/- 11776503)
-test Each_All/Redis ... bench: 4639739 ns/iter (+/- 329339)
-test Each_Identity/Redis ... bench: 9012504 ns/iter (+/- 2820561)
-test Each_Concrete/Redis ... bench: 8785782 ns/iter (+/- 5039571)
-test Each_Outgoing/Redis ... bench: 8484926 ns/iter (+/- 12616712)
-test Each_Incoming/Redis ... bench: 8242960 ns/iter (+/- 362284)
+# commit: 6ef0747d8c323e90e8bf4d38d17960ebfd6f3c57
+# redis: 8.10.2
+# date: 2026-10-23
+# run: https://github.com/linksplatform/Comparisons.RedisVSDoublets/actions/runs/40029663341
+test Create/Redis_NonTransaction ... bench:  13,124,303 ns/iter (+/- 357,143)
+test Create/Redis_Transaction ... bench:     757,459 ns/iter (+/- 14,681)
+test Create/Redis_Pipeline ... bench:     744,614 ns/iter (+/- 10,819)
+
+test Delete/Redis_NonTransaction ... bench:  12,777,527 ns/iter (+/- 414,023)
+test Delete/Redis_Transaction ... bench:     764,098 ns/iter (+/- 11,537)
+test Delete/Redis_Pipeline ... bench:     747,269 ns/iter (+/- 7,662)
+
+test Each_Identity/Redis_NonTransaction ... bench:  11,395,395 ns/iter (+/- 429,952)
+test Each_Identity/Redis_Transaction ... bench:     231,361 ns/iter (+/- 4,560)
+test Each_Identity/Redis_Pipeline ... bench:     219,296 ns/iter (+/- 3,292)
+
+test Each_Concrete/Redis_NonTransaction ... bench:  11,573,822 ns/iter (+/- 416,474)
+test Each_Concrete/Redis_Transaction ... bench:     261,383 ns/iter (+/- 3,912)
+test Each_Concrete/Redis_Pipeline ... bench:     243,373 ns/iter (+/- 4,217)
+
+test Each_Outgoing/Redis_NonTransaction ... bench:  11,780,494 ns/iter (+/- 617,478)
+test Each_Outgoing/Redis_Transaction ... bench:     291,295 ns/iter (+/- 4,203)
+test Each_Outgoing/Redis_Pipeline ... bench:     275,695 ns/iter (+/- 5,902)
+
+test Each_Incoming/Redis_NonTransaction ... bench:  11,455,341 ns/iter (+/- 241,550)
+test Each_Incoming/Redis_Transaction ... bench:     294,850 ns/iter (+/- 2,881)
+test Each_Incoming/Redis_Pipeline ... bench:     282,835 ns/iter (+/- 4,043)
+
+test Each_All/Redis_NonTransaction ... bench:     657,317 ns/iter (+/- 8,628)
+test Each_All/Redis_Transaction ... bench:     643,960 ns/iter (+/- 7,842)
+test Each_All/Redis_Pipeline ... bench:     654,614 ns/iter (+/- 7,586)
+
+test Update/Redis_NonTransaction ... bench:  27,833,543 ns/iter (+/- 1,292,218)
+test Update/Redis_Transaction ... bench:   1,973,893 ns/iter (+/- 24,414)
+test Update/Redis_Pipeline ... bench:   1,962,521 ns/iter (+/- 24,297)
+
+test KeyValue_Get/Redis_NonTransaction ... bench:  11,463,556 ns/iter (+/- 267,745)
+test KeyValue_Get/Redis_Transaction ... bench:     220,008 ns/iter (+/- 5,058)
+test KeyValue_Get/Redis_Pipeline ... bench:     203,191 ns/iter (+/- 3,579)
+
+test KeyValue_Set/Redis_NonTransaction ... bench:  11,724,160 ns/iter (+/- 262,786)
+test KeyValue_Set/Redis_Transaction ... bench:     236,923 ns/iter (+/- 5,136)
+test KeyValue_Set/Redis_Pipeline ... bench:     229,207 ns/iter (+/- 5,234)
+
+test KeyValue_Delete/Redis_NonTransaction ... bench:  11,536,944 ns/iter (+/- 294,251)
+test KeyValue_Delete/Redis_Transaction ... bench:     226,899 ns/iter (+/- 5,124)
+test KeyValue_Delete/Redis_Pipeline ... bench:     210,743 ns/iter (+/- 3,897)
+
+test Counter_Increment/Redis_NonTransaction ... bench:  11,489,593 ns/iter (+/- 287,301)
+test Counter_Increment/Redis_Transaction ... bench:     225,547 ns/iter (+/- 6,422)
+test Counter_Increment/Redis_Pipeline ... bench:     208,574 ns/iter (+/- 4,413)
+
+test Queue_Push/Redis_NonTransaction ... bench:  11,423,873 ns/iter (+/- 175,315)
+test Queue_Push/Redis_Transaction ... bench:     225,849 ns/iter (+/- 3,194)
+test Queue_Push/Redis_Pipeline ... bench:     216,116 ns/iter (+/- 4,282)
+
+test Queue_Pop/Redis_NonTransaction ... bench:  11,604,094 ns/iter (+/- 256,721)
+test Queue_Pop/Redis_Transaction ... bench:     236,623 ns/iter (+/- 3,166)
+test Queue_Pop/Redis_Pipeline ... bench:     224,627 ns/iter (+/- 3,037)
+
+test Set_Add/Redis_NonTransaction ... bench:  11,518,830 ns/iter (+/- 269,629)
+test Set_Add/Redis_Transaction ... bench:     225,291 ns/iter (+/- 5,914)
+test Set_Add/Redis_Pipeline ... bench:     205,988 ns/iter (+/- 5,479)
+
+test Set_Remove/Redis_NonTransaction ... bench:  11,385,171 ns/iter (+/- 249,660)
+test Set_Remove/Redis_Transaction ... bench:     224,211 ns/iter (+/- 3,658)
+test Set_Remove/Redis_Pipeline ... bench:     212,314 ns/iter (+/- 5,633)
+
+test Set_Contains/Redis_NonTransaction ... bench:  11,226,013 ns/iter (+/- 305,160)
+test Set_Contains/Redis_Transaction ... bench:     218,452 ns/iter (+/- 4,141)
+test Set_Contains/Redis_Pipeline ... bench:     204,161 ns/iter (+/- 3,947)
+

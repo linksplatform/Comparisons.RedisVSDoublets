@@ -3,210 +3,231 @@ name: Benchmarks
 on:
   push:
     branches: [main]
-    paths:
-      - 'rust/**'
-      - 'csharp/**'
-      - 'redis/**'
-      - 'scripts/**'
-      - 'rust-toolchain.toml'
-      - '.github/workflows/benchmarks.yml'
+    paths: ['rust/**', 'csharp/**', 'redis/**', 'scripts/**', 'rust-toolchain.toml', 'pyproject.toml', '.github/workflows/benchmarks.yml']
   pull_request:
-    branches: [main]
-    paths:
-      - 'rust/**'
-      - 'csharp/**'
-      - 'redis/**'
-      - 'scripts/**'
-      - 'rust-toolchain.toml'
-      - '.github/workflows/benchmarks.yml'
+    paths: ['rust/**', 'csharp/**', 'redis/**', 'scripts/**', 'rust-toolchain.toml', 'pyproject.toml', '.github/workflows/benchmarks.yml']
   workflow_dispatch:
+    inputs:
+      backgrounds:
+        description: JSON list of background links (1,000..1,000,000)
+        default: '[10000, 100000, 1000000]'
+      links:
+        description: Operations per iteration (at most the smallest number of background links)
+        default: '1000'
 
 permissions:
   contents: read
 
-concurrency:
-  group: benchmarks-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
-
 env:
-  REDIS_URL: redis://127.0.0.1:6379
   CARGO_TERM_COLOR: always
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
-  BENCHMARK_LINKS: ${{ github.event_name == 'pull_request' && '100' || '1000' }}
-  BENCHMARK_SAMPLES: ${{ github.event_name == 'pull_request' && '10' || '30' }}
 
 jobs:
-  test-rust:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    services:
-      redis:
-        image: redis:7.4.2
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 12
-    defaults:
-      run:
-        working-directory: rust
-    steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: '1.98.1'
-          components: rustfmt, clippy
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: rust
-      - run: cargo fmt --check
-      - run: cargo clippy --locked --release --all-targets -- -D warnings
-      - run: cargo test --locked --release -- --include-ignored
-
-  test-csharp:
-    runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    services:
-      redis:
-        image: redis:7.4.2
-        ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 12
-    defaults:
-      run:
-        working-directory: csharp
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-dotnet@v4
-        with:
-          global-json-file: csharp/global.json
-      - run: dotnet restore --locked-mode
-      - run: dotnet format --no-restore --verify-no-changes
-      - run: dotnet build -c Release --no-restore -warnaserror
-      - run: dotnet test -c Release --no-build --no-restore -- --timeout 2m
-
-  test-report:
+  plan:
+    name: Report script tests and benchmark plan
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-plan
+      cancel-in-progress: true
+    outputs:
+      backgrounds: ${{ steps.plan.outputs.backgrounds }}
+      links: ${{ steps.plan.outputs.links }}
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          python-version: '3.12'
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
       - run: pip install -r scripts/requirements.txt
-      - run: ruff check scripts
-      - run: ruff format --check scripts
-      - run: python3 -m unittest discover -s scripts -v
+      - run: python -m unittest discover -s scripts -v
+      - name: Validate the sizes
+        id: plan
+        env:
+          # Full benchmarks on the main branch; a quick run checks pull requests.
+          BACKGROUNDS: ${{ inputs.backgrounds || (github.event_name == 'pull_request' && '[1000]') || '[10000, 100000, 1000000]' }}
+          LINKS: ${{ inputs.links || (github.event_name == 'pull_request' && '100') || '1000' }}
+        run: |
+          backgrounds=$(jq -ce 'if type == "array" and length > 0
+            and all(.[]; type == "number" and . == floor and . >= 1000 and . <= 1000000)
+            then unique else error("expected a list of 1000..1000000") end' <<< "$BACKGROUNDS")
+          smallest=$(jq -r 'min' <<< "$backgrounds")
+          if ! [[ "$LINKS" =~ ^[1-9][0-9]*$ ]] || [ "$LINKS" -gt "$smallest" ]; then
+            echo "::error::links must be 1..$smallest, got $LINKS"
+            exit 1
+          fi
+          echo "backgrounds=$backgrounds" >> "$GITHUB_OUTPUT"
+          echo "links=$LINKS" >> "$GITHUB_OUTPUT"
 
+  # Every language, backend and number of background links runs in its own
+  # job (a separate virtual machine), so they do not compete for the same CPU.
   benchmark:
-    needs: [test-rust, test-csharp, test-report]
+    name: ${{ matrix.language }} ${{ matrix.backend }} ${{ matrix.background }}
+    needs: plan
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 180
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-${{ matrix.language }}-${{ matrix.backend }}-${{ matrix.background }}
+      cancel-in-progress: true
     strategy:
       fail-fast: false
       matrix:
         language: [rust, csharp]
         backend: [redis, doublets]
-        background: ${{ fromJSON(github.event_name == 'pull_request' && '[1000]' || '[10000,100000,1000000]') }}
-    # Each language/backend/size has a dedicated runner.
+        background: ${{ fromJSON(needs.plan.outputs.backgrounds) }}
     services:
       redis:
-        image: redis:7.4.2
+        # The official image, whose snapshots are switched off below; the
+        # Doublets jobs need no server.
+        image: ${{ matrix.backend == 'redis' && 'redis:8.10.2@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901' || '' }}
         ports: ['6379:6379']
-        options: >-
-          --health-cmd "redis-cli ping"
-          --health-interval 5s --health-timeout 3s --health-retries 12
+        options: --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 5s --health-retries 30
     env:
+      LANGUAGE: ${{ matrix.language }}
       BENCHMARK_BACKEND: ${{ matrix.backend }}
       BENCHMARK_BACKGROUND_LINKS: ${{ matrix.background }}
+      BENCHMARK_LINKS: ${{ needs.plan.outputs.links }}
+      # The benchmarks empty this database (FLUSHDB).
+      REDIS_URL: redis://localhost:6379
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
       - if: matrix.language == 'rust'
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
         with:
           toolchain: '1.98.1'
       - if: matrix.language == 'rust'
-        uses: Swatinem/rust-cache@v2
+        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
         with:
           workspaces: rust
+          save-if: ${{ github.ref == 'refs/heads/main' }}
+      - if: matrix.language == 'rust'
+        run: cargo bench --locked --manifest-path rust/Cargo.toml --no-run
+      - name: Disable the persistence of Redis
+        if: matrix.backend == 'redis'
+        env:
+          REDIS_CONTAINER: ${{ job.services.redis.id }}
+        run: |
+          # Doublets is volatile, so Redis must not write snapshots or an
+          # append-only file in the measured time. A service container
+          # cannot get command line arguments, so the server is reconfigured.
+          docker exec "$REDIS_CONTAINER" redis-cli CONFIG SET save ''
+          docker exec "$REDIS_CONTAINER" redis-cli CONFIG SET appendonly no
+          docker exec "$REDIS_CONTAINER" redis-cli CONFIG GET save
       - if: matrix.language == 'csharp'
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
         with:
           global-json-file: csharp/global.json
-      - name: Disable Redis persistence
-        run: |
-          # Issue #1 requires an in-memory comparison. Configure through a client
-          # on the host; service container command arguments are not supported.
-          docker exec "${{ job.services.redis.id }}" redis-cli CONFIG SET save ''
-          docker exec "${{ job.services.redis.id }}" redis-cli CONFIG SET appendonly no
-      - name: Build Rust
-        if: matrix.language == 'rust'
-        run: cargo build --locked --release --manifest-path rust/Cargo.toml
-      - name: Build C#
-        if: matrix.language == 'csharp'
-        working-directory: csharp
-        run: |
-          dotnet restore --locked-mode
-          dotnet build -c Release --no-restore -warnaserror
+      - if: matrix.language == 'csharp'
+        run: dotnet build csharp/RedisVSDoublets -c Release -warnaserror
       - name: Benchmark
-        working-directory: ${{ matrix.language }}
         env:
-          LANGUAGE: ${{ matrix.language }}
-          RESULT_FILE: ${{ matrix.language }}-${{ matrix.background }}-${{ matrix.backend }}.txt
+          # Rust only: a fresh directory, because Criterion compares with an
+          # older result if one exists.
+          CRITERION_HOME: ${{ runner.temp }}/criterion
         run: |
           set -o pipefail
+          name="$LANGUAGE-$BENCHMARK_BACKGROUND_LINKS-$BENCHMARK_BACKEND"
+          echo "NAME=$name" >> "$GITHUB_ENV"
+          mkdir results
           {
-            ../scripts/benchmark_header.sh "$LANGUAGE"
+            python3 scripts/benchmark_header.py "$LANGUAGE" "$BENCHMARK_BACKEND"
             if [ "$LANGUAGE" = rust ]; then
-              ./target/release/redis-vs-doublets
+              (cd rust && cargo bench --locked --bench bench -- --output-format bencher --noplot)
             else
-              dotnet run -c Release --no-build --project RedisVSDoublets
+              dotnet run -c Release --no-build --project csharp/RedisVSDoublets
             fi
-          } | tee "$RESULT_FILE"
-      - uses: actions/upload-artifact@v4
+          } | tee "results/$name.txt"
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: bench-${{ matrix.language }}-${{ matrix.background }}-${{ matrix.backend }}
-          path: ${{ matrix.language }}/${{ matrix.language }}-${{ matrix.background }}-${{ matrix.backend }}.txt
+          name: results-${{ env.NAME }}
+          path: results/${{ env.NAME }}.txt
           if-no-files-found: error
+          retention-days: 30
 
   report:
+    name: Report
     needs: benchmark
     runs-on: ubuntu-24.04
-    timeout-minutes: 10
-    permissions:
-      contents: write
+    timeout-minutes: 15
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.ref }}-report
+      cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
-          ref: ${{ github.sha }}
-      - uses: actions/download-artifact@v4
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
         with:
-          pattern: bench-*
+          python-version: '3.13'
+      - run: pip install -r scripts/requirements.txt
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: results-*
           merge-multiple: true
           path: results
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - run: pip install -r scripts/requirements.txt
-      - name: Generate tables and charts
+      - name: Generate the tables and charts
         run: |
           set -o pipefail
-          python3 scripts/benchmark_report.py results --readme README.md --charts docs | tee "$GITHUB_STEP_SUMMARY"
-      - uses: actions/upload-artifact@v4
+          python scripts/benchmark_report.py results --readme README.md --charts docs | tee -a "$GITHUB_STEP_SUMMARY"
+          npx --yes markdownlint-cli@0.49.1 README.md
+      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
         with:
-          name: benchmark-report
+          name: Benchmark report
           path: |
             results
             README.md
             docs/bench_*.png
-      - name: Commit main results
-        if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+          if-no-files-found: error
+
+  publish:
+    name: Publish the results
+    needs: report
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    concurrency:
+      group: main-writer-${{ github.repository }}
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          ref: main
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: '3.13'
+      - run: pip install -r scripts/requirements.txt
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          pattern: results-*
+          merge-multiple: true
+          path: ${{ runner.temp }}/results
+      - name: Commit the results to main
+        env:
+          # The branch protection of main restricts who may push. The
+          # workflow token can push only if GitHub Actions is allowed to;
+          # otherwise a token of an allowed account is needed (see below).
+          GH_TOKEN: ${{ secrets.BENCHMARK_PUSH_TOKEN || github.token }}
         run: |
-          git config user.name LinksPlatformBencher
-          git config user.email linksplatform@gmail.com
-          git add README.md docs/bench_*.png
-          if ! git diff --cached --quiet; then
-            git commit -m 'Update Redis benchmark results'
-            git push origin HEAD:main
+          gh auth setup-git
+          git config user.email "linksplatform@gmail.com"
+          git config user.name "LinksPlatformBencher"
+          python scripts/benchmark_report.py "$RUNNER_TEMP/results" --readme README.md --charts docs > /dev/null
+          git add README.md docs
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            exit 0
+          fi
+          git commit -m "Update benchmark results"
+          # Another commit may have reached main in the meantime.
+          git pull --rebase origin main
+          if ! git push origin HEAD:main; then
+            echo "::error title=Cannot publish the benchmark results::The push to main was rejected, most likely by the branch protection rule of main, which restricts who can push. A maintainer has to either add GitHub Actions (github-actions) to the accounts that may push to main in Settings > Branches, or save a token of an account that may push (contents: write) as the repository secret BENCHMARK_PUSH_TOKEN. Until then, the results are in the artifact \"Benchmark report\" of this run."
+            exit 1
           fi

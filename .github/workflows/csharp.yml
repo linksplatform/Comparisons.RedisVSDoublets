@@ -1,0 +1,58 @@
+name: C#
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths: ['csharp/**', 'redis/**', 'experiments/csharp-*/**', '.github/workflows/csharp.yml']
+  pull_request:
+    paths: ['csharp/**', 'redis/**', 'experiments/csharp-*/**', '.github/workflows/csharp.yml']
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    working-directory: csharp
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # The Redis tests are skipped without it, and empty this database (FLUSHDB).
+  REDIS_URL: redis://localhost:6379
+
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    services:
+      redis:
+        image: redis:8.10.2@sha256:97ec88159e6d7cfb5ddef9015386087d58a912de80112f06ebdfa78fa5989901
+        ports: ['6379:6379']
+        options: --health-cmd "redis-cli ping" --health-interval 2s --health-timeout 5s --health-retries 30
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
+        with:
+          persist-credentials: false
+      - uses: actions/setup-dotnet@a98b56852c35b8e3190ac28c8c2271da59106c68 # v6
+        with:
+          global-json-file: csharp/global.json
+      - run: dotnet format RedisVSDoublets.slnx --verify-no-changes
+      - name: Format every C# experiment
+        run: |
+          for project in ../experiments/csharp-*/*.csproj; do
+            dotnet format whitespace "$project" --verify-no-changes
+          done
+      - name: Build (warnings are errors)
+        run: dotnet build RedisVSDoublets.slnx -c Release -warnaserror
+      - name: Test (all stores give the same results, including Redis in every mode)
+        run: dotnet test --project RedisVSDoublets.Tests -c Release --no-build -- --timeout 15m
+      - name: Build every C# experiment
+        run: |
+          for project in ../experiments/csharp-*/*.csproj; do
+            dotnet build "$project" -c Release -warnaserror
+          done

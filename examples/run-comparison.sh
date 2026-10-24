@@ -1,26 +1,32 @@
 #!/usr/bin/env bash
-# Reproduce the four quick benchmark jobs locally against a running Redis.
+# Runs the benchmarks like .github/workflows/benchmarks.yml does, writing
+# results/<language>-<background>-<backend>.txt, and then the README tables and
+# the charts in docs/ with scripts/benchmark_report.py.
+# Usage: examples/run-comparison.sh [background links...]
+# (default 1000; BENCHMARK_LINKS defaults to 100). REDIS_URL must point to an
+# empty, disposable Redis database without persistence: the benchmarks run
+# FLUSHDB. For example:
+#   docker run -d --name redis-comparison -p 127.0.0.1:6379:6379 redis:8.10.2 \
+#     redis-server --save '' --appendonly no
 set -euo pipefail
 cd "$(dirname "$0")/.."
-export REDIS_URL=${REDIS_URL:-redis://127.0.0.1:6379}
-export BENCHMARK_BACKGROUND_LINKS=${BENCHMARK_BACKGROUND_LINKS:-1000}
-export BENCHMARK_LINKS=${BENCHMARK_LINKS:-100}
-export BENCHMARK_SAMPLES=${BENCHMARK_SAMPLES:-10}
+export BENCHMARK_LINKS="${BENCHMARK_LINKS:-100}"
+export REDIS_URL="${REDIS_URL:-redis://localhost:6379}"
 mkdir -p results
-cargo build --locked --release --manifest-path rust/Cargo.toml
-(cd csharp && dotnet restore --locked-mode && dotnet build -c Release --no-restore)
-for language in rust csharp; do
+(cd rust && cargo bench --locked --bench bench --no-run)
+dotnet build csharp/RedisVSDoublets -c Release -warnaserror
+for background in "${@:-1000}"; do
   for backend in redis doublets; do
-    export BENCHMARK_BACKEND=$backend
-    (
-      cd "$language"
-      ../scripts/benchmark_header.sh "$language"
-      if [ "$language" = rust ]; then
-        ./target/release/redis-vs-doublets
-      else
-        dotnet run -c Release --no-build --project RedisVSDoublets
-      fi
-    ) | tee "results/$language-$BENCHMARK_BACKGROUND_LINKS-$backend.txt"
+    export BENCHMARK_BACKGROUND_LINKS="$background" BENCHMARK_BACKEND="$backend"
+    {
+      python3 scripts/benchmark_header.py rust "$backend"
+      # A fresh directory, because Criterion compares with an older result.
+      (cd rust && CRITERION_HOME="$(mktemp -d)" cargo bench --locked --bench bench -- --output-format bencher --noplot)
+    } | tee "results/rust-$background-$backend.txt"
+    {
+      python3 scripts/benchmark_header.py csharp "$backend"
+      dotnet run -c Release --no-build --project csharp/RedisVSDoublets
+    } | tee "results/csharp-$background-$backend.txt"
   done
 done
 python3 scripts/benchmark_report.py results --readme README.md --charts docs

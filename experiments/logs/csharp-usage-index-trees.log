@@ -1,0 +1,10 @@
+members: 20000
+Default                            add    3.5 µs ->    2.1 µs   contains    0.2 µs ->    0.3 µs   remove    0.7 µs ->    2.7 µs
+SizeBalancedTree                   add    2.6 µs ->    1.8 µs   contains    0.2 µs ->    0.3 µs   remove    1.1 µs ->    1.2 µs
+RecursionlessSizeBalancedTree      add    4.7 µs ->    7.3 µs   contains    0.3 µs ->    1.8 µs   remove    0.8 µs ->    0.9 µs
+SizedAndThreadedAVLBalancedTree    add   33.3 µs ->    2.4 µs   contains    0.3 µs ->    0.3 µs   remove    1.6 µs ->    8.2 µs
+members: 200000
+Default                            add    1.8 µs ->    2.0 µs   contains    0.3 µs ->    0.4 µs   remove    0.6 µs ->    0.9 µs
+SizeBalancedTree                   add    4.0 µs ->    2.0 µs   contains    0.3 µs ->    0.3 µs   remove    0.6 µs ->    1.1 µs
+RecursionlessSizeBalancedTree      add    2.4 µs ->    3.3 µs   contains    0.4 µs ->    0.3 µs   remove    0.9 µs ->    1.1 µs
+SizedAndThreadedAVLBalancedTree    add    3.0 µs ->    2.5 µs   contains    0.3 µs ->    0.3 µs   remove    1.7 µs ->    2.1 µs

@@ -1,169 +1,336 @@
+"""Tests of benchmark_report.py: python3 -m unittest discover -s scripts"""
+
+import contextlib
+import io
 import tempfile
 import unittest
 from pathlib import Path
 
 import benchmark_report as report
 
+LINKS, USAGE = report.SUITES
 
-def output(backend, links=5, background=20):
-    metadata = f"# links: {links}\n# background: {background}\n# samples: 10\n# cpu: Test CPU\n# date: 2026-10-06\n# runtime: test runtime\n# commit: abc123\n"
-    if backend == "redis":
-        metadata += "# redis: 7.4.2\n"
-    variant = "Redis" if backend == "redis" else "Doublets"
-    return metadata + "\n".join(
-        f"test {operation.replace(' ', '_')}/{variant} ... bench: 100 ns/iter (+/- 1)"
-        for operation in report.OPERATIONS
+
+def run(metadata, results):
+    return "\n".join(
+        [f"# {key}: {value}" for key, value in metadata.items()]
+        + [
+            f"test {operation}/{implementation} ... bench: {time:,} ns/iter (+/- {deviation:,})"
+            for operation, implementation, time, deviation in results
+        ]
     )
 
 
-class ReportTests(unittest.TestCase):
-    def setUp(self):
-        self.temporary = tempfile.TemporaryDirectory()
-        self.addCleanup(self.temporary.cleanup)
-        self.path = Path(self.temporary.name)
-        for language in ("rust", "csharp"):
-            for backend in ("redis", "doublets"):
-                (self.path / f"{language}-20-{backend}.txt").write_text(output(backend))
+METADATA = {
+    "links": "1000",
+    "background links": "10000",
+    "cpu": "AMD EPYC 7763 64-Core Processor",
+    "runtime": "rustc 1.98.1 (48a229cea 2026-09-01)",
+    "commit": "0123456789abcdef0123456789abcdef01234567",
+    "date": "2026-10-23",
+    "run": "https://github.com/owner/repo/actions/runs/1",
+}
+DOUBLETS_RUN = run(
+    METADATA,
+    [
+        (operation, implementation, 50_000 + index, 1_000)
+        for suite in report.SUITES
+        for operation in suite.operations
+        for index, (implementation, _, _) in enumerate(suite.doublets)
+    ],
+)
+REDIS_RUN = run(
+    METADATA | {"redis": "8.10.2"},
+    [
+        (operation, implementation, time, 100_000)
+        for suite in report.SUITES
+        for operation in suite.operations
+        for implementation, time in (
+            ("Redis_NonTransaction", 80_000_000),
+            ("Redis_Transaction", 20_000_000),
+            ("Redis_Pipeline", 10_000_000),
+        )
+    ],
+)
+BOTH = {"rust-10000-doublets.txt": DOUBLETS_RUN, "rust-10000-redis.txt": REDIS_RUN}
 
-    def test_complete_results(self):
-        results = report.load(self.path)
-        self.assertEqual(len(results), 2)
-        generated = report.section(results, "docs")
-        for expected in (
-            "### Rust",
-            "### C#",
-            "≈ same",
-            "7.4.2",
-            "Test CPU",
-            "test runtime",
-            "abc123",
-            "linear scale",
-            "log scale",
-        ):
-            self.assertIn(expected, generated)
 
-    def test_comparisons(self):
-        self.assertEqual(report.comparison((100, 0), (1000, 0)), "10× faster")
-        self.assertEqual(report.comparison((1000, 0), (100, 0)), "10× slower")
-        self.assertEqual(report.comparison((100, 0), (104, 0)), "≈ same")
-        self.assertEqual(report.comparison((100, 100), (190, 100)), "≈ same")
+def write_results(directory, files):
+    for name, text in files.items():
+        (Path(directory) / name).write_text(text, encoding="utf-8")
 
-    def test_missing_backend(self):
-        (self.path / "rust-20-redis.txt").unlink()
-        with self.assertRaisesRegex(ValueError, "no redis results"):
-            report.load(self.path)
 
-    def test_missing_language(self):
-        for file in self.path.glob("csharp-*"):
-            file.unlink()
-        with self.assertRaisesRegex(ValueError, "same background sizes"):
-            report.load(self.path)
+class Formatting(unittest.TestCase):
+    def test_three_significant_digits(self):
+        self.assertEqual(report.significant(999.6), "1000")
+        self.assertEqual(report.significant(128.4), "128")
+        self.assertEqual(report.significant(1.234), "1.23")
 
-    def test_invalid_files(self):
-        (self.path / "garbage.txt").write_text("oops")
-        with self.assertRaisesRegex(ValueError, "expected"):
-            report.load(self.path)
+    def test_durations_use_readable_units(self):
+        self.assertEqual(report.duration(5), "5 ns")
+        self.assertEqual(report.duration(79_837), "79.8 µs")
+        self.assertEqual(report.duration(10_242_146), "10.2 ms")
+        self.assertEqual(report.duration(1_491_658_178), "1.49 s")
+        # Rounding to 1000 µs moves to the next unit.
+        self.assertEqual(report.duration(999_960), "1 ms")
 
-    def test_missing_or_unexpected_operation(self):
-        file = self.path / "rust-20-redis.txt"
-        for text in ("", output("doublets")):
-            file.write_text(text)
-            with self.assertRaisesRegex(ValueError, "missing results"):
-                report.load(self.path)
+    def test_large_ratios_have_thousands_separators(self):
+        self.assertEqual(report.ratio(36_630.1), "36,600")
+        self.assertEqual(report.ratio(128.3), "128")
+        self.assertEqual(report.ratio(1.234), "1.23")
 
-    def test_mismatched_workload(self):
-        file = self.path / "rust-20-redis.txt"
-        for key, old, new in (
-            ("links", "5", "4"),
-            ("samples", "10", "3"),
-            ("background", "20", "21"),
-        ):
-            file.write_text(
-                output("redis").replace(f"# {key}: {old}", f"# {key}: {new}")
-            )
-            with self.assertRaises(ValueError):
-                report.load(self.path)
+    def test_group_names(self):
+        self.assertEqual(report.name("Each_All"), "Each All")
+        self.assertEqual(report.name("Counter_Increment"), "Counter Increment")
 
-    def test_languages_and_commits_match(self):
-        for path, old, new in (
-            ("csharp-20-redis.txt", "# links: 5", "# links: 4"),
-            ("rust-20-redis.txt", "# commit: abc123", "# commit: def456"),
-        ):
-            file = self.path / path
-            file.write_text(output("redis").replace(old, new))
-            with self.assertRaises(ValueError):
-                report.load(self.path)
-            file.write_text(output("redis"))
 
-    def test_missing_provenance(self):
-        file = self.path / "rust-20-redis.txt"
-        for key in ("cpu", "date", "runtime", "commit", "redis"):
-            file.write_text(
-                "\n".join(
-                    line
-                    for line in output("redis").splitlines()
-                    if not line.startswith(f"# {key}:")
-                )
-            )
-            with self.assertRaisesRegex(ValueError, "missing"):
-                report.load(self.path)
+class Comparison(unittest.TestCase):
+    def test_faster(self):
+        self.assertEqual(report.comparison((79_837, 1_000), (10_242_146, 1_099_253)), "128× faster")
 
-    def test_parse_rejects_invalid_lines(self):
-        for line in (
-            "test Create/Redis ... FAILED",
-            "test Unknown/Redis ... bench: 1 ns/iter (+/- 0)",
-            "test Create/Redis ... bench: 0 ns/iter (+/- 0)",
-        ):
-            with self.assertRaises(ValueError):
-                report.parse(line)
+    def test_slower_is_not_reported_as_a_fraction_of_faster(self):
+        self.assertEqual(report.comparison((30_000, 100), (10_000, 100)), "3× slower")
 
-    def test_duplicate_result(self):
-        line = "test Create/Redis ... bench: 1 ns/iter (+/- 0)"
-        with self.assertRaisesRegex(ValueError, "duplicate"):
-            report.parse(line + "\n" + line)
+    def test_differences_below_the_noise_are_the_same(self):
+        self.assertEqual(report.comparison((1_040, 0), (1_000, 0)), "≈ same")
 
-    def test_thousands(self):
-        times, _ = report.parse("test Create/Redis ... bench: 1,000 ns/iter (+/- 100)")
-        self.assertEqual(times[("Create", "Redis")], (1000, 100))
-        self.assertEqual(report.duration(1000000), "1 ms")
+    def test_overlapping_deviations_are_the_same(self):
+        self.assertEqual(report.comparison((1_000, 300), (1_500, 300)), "≈ same")
 
-    def test_markers_preserve_authored_text(self):
-        document = f"before\n{report.START_MARKER}\nold\n{report.END_MARKER}\nafter"
+    def test_the_baseline_is_the_fastest_redis_implementation(self):
+        times = {
+            ("Each_All", "Redis_NonTransaction"): (3_000_000, 0),
+            ("Each_All", "Redis_Transaction"): (3_100_000, 0),
+            ("Each_All", "Redis_Pipeline"): (3_200_000, 0),
+            ("Create", "Redis_NonTransaction"): (20_000_000, 0),
+            ("Create", "Redis_Transaction"): (2_000_000, 0),
+            ("Create", "Redis_Pipeline"): (1_000_000, 0),
+        }
+        self.assertEqual(report.baseline(times, "Each_All"), "Redis_NonTransaction")
+        self.assertEqual(report.baseline(times, "Create"), "Redis_Pipeline")
+
+
+class Parsing(unittest.TestCase):
+    def test_criterion_bencher_lines_and_metadata(self):
+        times, metadata = report.parse(
+            "# redis: 8.10.2\n"
+            "Benchmarking Create/Redis_Transaction: Warming up for 1.0000 s\n"
+            "test Create/Redis_Transaction ... bench:     244,055 ns/iter (+/- 5,345)\n"
+            "test Queue_Pop/Doublets_United_Volatile ... bench: 1234 ns/iter (+/- 5)\n"
+        )
         self.assertEqual(
-            report.replace_section(document, "new"), document.replace("old", "new")
+            times,
+            {
+                ("Create", "Redis_Transaction"): (244_055, 5_345),
+                ("Queue_Pop", "Doublets_United_Volatile"): (1_234, 5),
+            },
         )
-        with self.assertRaises(ValueError):
-            report.replace_section("missing", "new")
+        self.assertEqual(metadata, {"redis": "8.10.2"})
 
-    def test_duplicate_markers(self):
-        document = report.START_MARKER + report.END_MARKER
-        with self.assertRaises(ValueError):
-            report.replace_section(document + document, "new")
+    def test_a_failed_benchmark_is_not_published(self):
+        with self.assertRaisesRegex(ValueError, "no result"):
+            report.parse("test Create/Redis_Transaction ... FAILED\n")
 
-    def test_empty_directory(self):
-        with tempfile.TemporaryDirectory() as empty:
-            with self.assertRaisesRegex(ValueError, "no results"):
-                report.load(empty)
+    def test_unknown_benchmarks_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "unknown benchmark"):
+            report.parse("test Create/Redis ... bench: 1 ns/iter (+/- 0)\n")
+        with self.assertRaisesRegex(ValueError, "unknown benchmark"):
+            report.parse("test Rename/Redis_Pipeline ... bench: 1 ns/iter (+/- 0)\n")
 
-    def test_charts_and_readme_end_to_end(self):
-        readme = self.path / "README.md"
-        readme.write_text(
-            f"prefix\n{report.START_MARKER}\nold\n{report.END_MARKER}\nsuffix"
+    def test_the_split_store_has_no_usage_benchmarks(self):
+        with self.assertRaisesRegex(ValueError, "unknown benchmark"):
+            report.parse("test Queue_Pop/Doublets_Split_Volatile ... bench: 1 ns/iter (+/- 0)\n")
+
+    def test_a_benchmark_measured_twice_is_rejected(self):
+        line = "test Create/Redis_Pipeline ... bench: 1 ns/iter (+/- 0)\n"
+        with self.assertRaisesRegex(ValueError, "twice"):
+            report.parse(line + line)
+
+    def test_a_zero_time_is_rejected(self):
+        with self.assertRaisesRegex(ValueError, "no time"):
+            report.parse("test Create/Redis_Pipeline ... bench: 0 ns/iter (+/- 0)\n")
+
+
+class Loading(unittest.TestCase):
+    def test_complete_results(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_results(directory, BOTH)
+            results = report.load(Path(directory))
+        self.assertEqual(list(results), [("rust", 10000)])
+        # Links: 2 Doublets and 3 Redis implementations, usage: 1 and 3.
+        self.assertEqual(len(results[("rust", 10000)]["times"]), 8 * 5 + 9 * 4)
+
+    def test_results_are_ordered_by_language_and_background_links(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_results(
+                directory,
+                {
+                    f"{language}-{background}-{backend}.txt": text
+                    for language in ("csharp", "rust")
+                    for background in (100000, 10000)
+                    for backend, text in (("doublets", DOUBLETS_RUN), ("redis", REDIS_RUN))
+                },
+            )
+            results = report.load(Path(directory))
+        self.assertEqual(list(results), [("rust", 10000), ("rust", 100000), ("csharp", 10000), ("csharp", 100000)])
+
+    def test_a_missing_result_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            lines = REDIS_RUN.splitlines()
+            write_results(directory, BOTH | {"rust-10000-redis.txt": "\n".join(lines[:-1])})
+            with self.assertRaisesRegex(ValueError, "missing results"):
+                report.load(Path(directory))
+
+    def test_a_result_of_the_other_backend_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_results(directory, BOTH | {"rust-10000-redis.txt": REDIS_RUN + "\n" + DOUBLETS_RUN})
+            with self.assertRaisesRegex(ValueError, "unexpected results"):
+                report.load(Path(directory))
+
+    def test_a_missing_backend_is_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_results(directory, {"rust-10000-doublets.txt": DOUBLETS_RUN})
+            with self.assertRaisesRegex(ValueError, "no redis results"):
+                report.load(Path(directory))
+
+    def test_unexpected_file_names_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory:
+            write_results(directory, {"10000-doublets.txt": DOUBLETS_RUN})
+            with self.assertRaisesRegex(ValueError, "expected"):
+                report.load(Path(directory))
+
+    def test_no_results_are_rejected(self):
+        with tempfile.TemporaryDirectory() as directory, self.assertRaisesRegex(ValueError, "no results"):
+            report.load(Path(directory))
+
+
+class Markdown(unittest.TestCase):
+    def setUp(self):
+        directory = tempfile.TemporaryDirectory()
+        self.addCleanup(directory.cleanup)
+        write_results(directory.name, BOTH)
+        self.results = report.load(Path(directory.name))
+
+    def test_links_table(self):
+        lines = report.table(self.results[("rust", 10000)]["times"], LINKS).splitlines()
+        self.assertEqual(
+            lines[0],
+            "| Operation | Doublets United Volatile | Doublets Split Volatile"
+            " | Redis NonTransaction | Redis Transaction | Redis Pipeline |",
         )
-        report.main(
-            [
-                str(self.path),
-                "--readme",
-                str(readme),
-                "--charts",
-                str(self.path / "docs"),
-            ]
+        self.assertEqual(lines[1], "| --- |" + " ---: |" * 5)
+        self.assertEqual(lines[2], "| Create | 50 µs (200× faster) | 50 µs (200× faster) | 80 ms | 20 ms | **10 ms** |")
+        self.assertEqual(len(lines), 2 + 8)
+
+    def test_usage_table(self):
+        lines = report.table(self.results[("rust", 10000)]["times"], USAGE).splitlines()
+        self.assertEqual(
+            lines[0],
+            "| Operation | Doublets United Volatile | Redis NonTransaction | Redis Transaction | Redis Pipeline |",
         )
-        self.assertEqual(len(list((self.path / "docs").glob("*.png"))), 4)
-        for image in (self.path / "docs").glob("*.png"):
-            self.assertTrue(image.read_bytes().startswith(b"\x89PNG\r\n\x1a\n"))
-        self.assertTrue(readme.read_text().startswith("prefix\n"))
-        self.assertTrue(readme.read_text().endswith("\nsuffix"))
+        self.assertEqual(lines[2], "| KeyValue Get | 50 µs (200× faster) | 80 ms | 20 ms | **10 ms** |")
+        self.assertEqual(len(lines), 2 + 9)
+
+    def test_provenance(self):
+        client, library = report.versions("rust")
+        self.assertEqual(
+            report.provenance("rust", self.results[("rust", 10000)], 1000),
+            f"_Median time of one iteration with 1,000 operations. Redis 8.10.2 through {client}; {library}. "
+            "CPU AMD EPYC 7763 64-Core Processor, runtime rustc 1.98.1 (48a229cea 2026-09-01), commit 0123456, "
+            "[GitHub Actions run](https://github.com/owner/repo/actions/runs/1) on 2026-10-23._",
+        )
+
+    def test_provenance_of_a_local_run_on_two_machines(self):
+        result = self.results[("rust", 10000)]
+        result["metadata"]["doublets"] = {"cpu": "Apple M3", "runtime": "rustc 1.98.1", "commit": "fedcba9876"}
+        result["metadata"]["redis"] = {"cpu": "AMD EPYC 7763 64-Core Processor", "redis": "8.10.2"}
+        self.assertIn(
+            "CPU AMD EPYC 7763 64-Core Processor (Redis) and Apple M3 (Doublets), "
+            "runtime rustc 1.98.1 and unknown, commit fedcba9 and unknown, a local run._",
+            report.provenance("rust", result, 1000),
+        )
+
+    def test_versions_come_from_the_repository(self):
+        self.assertRegex(report.versions("rust")[0], r"^redis-rs \d+\.\d+\.\d+$")
+        self.assertRegex(report.versions("csharp")[1], r"^Platform\.Data\.Doublets \d+\.\d+\.\d+$")
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "rust").mkdir()
+            (root / "rust" / "Cargo.lock").write_text(
+                '[[package]]\nname = "doublets"\nversion = "0.5.0"\n\n[[package]]\nname = "redis"\nversion = "1.8.0"\n'
+            )
+            self.assertEqual(report.versions("rust", root), ["redis-rs 1.8.0", "doublets 0.5.0"])
+            self.assertEqual(
+                report.versions("csharp", root),
+                ["StackExchange.Redis unknown version", "Platform.Data.Doublets unknown version"],
+            )
+
+    def test_section_has_every_language_and_suite(self):
+        generated = report.section(self.results, "docs")
+        self.assertIn("### Rust\n\n#### Rust: 10,000 background links, 1,000 operations per iteration\n", generated)
+        self.assertIn("### C#\n\n_No results yet._\n", generated)
+        self.assertIn("Links storage:\n\n| Operation |", generated)
+        self.assertIn("Typical Redis usage:\n\n| Operation |", generated)
+        self.assertIn(
+            "![Rust, Typical Redis usage, 10,000 background links, 1,000 operations per iteration, log scale]"
+            "(docs/bench_rust_usage_log_scale_10000.png)",
+            generated,
+        )
+        self.assertTrue(generated.startswith(report.LINT_OFF))
+        self.assertTrue(generated.endswith(report.LINT_ON))
+
+    def test_replacing_the_section_twice_gives_the_same_document(self):
+        document = f"# Title\n\n{report.START_MARKER}\nold\n{report.END_MARKER}\n\n## Limitations\n"
+        once = report.replace_section(document, report.section(self.results, "docs"))
+        self.assertEqual(report.replace_section(once, report.section(self.results, "docs")), once)
+        self.assertNotIn("old", once)
+        self.assertTrue(once.startswith("# Title\n\n") and once.endswith("\n\n## Limitations\n"))
+
+    def test_missing_markers_are_rejected(self):
+        with self.assertRaisesRegex(ValueError, "markers"):
+            report.replace_section("# Title\n", "generated")
+
+    def test_different_links_per_iteration_are_rejected(self):
+        result = self.results[("rust", 10000)]
+        result["metadata"]["redis"]["links"] = "100"
+        with self.assertRaisesRegex(ValueError, "different or unknown links"):
+            report.links_per_iteration(result)
+
+
+class Charts(unittest.TestCase):
+    def test_linear_and_log_charts_are_written(self):
+        try:
+            import matplotlib  # noqa: F401
+        except ImportError:
+            self.skipTest("matplotlib is not installed")
+        with tempfile.TemporaryDirectory() as directory:
+            write_results(directory, BOTH)
+            written = report.charts(report.load(Path(directory)), Path(directory) / "docs")
+            self.assertEqual(
+                [path.name for path in written],
+                [
+                    "bench_rust_links_10000.png",
+                    "bench_rust_links_log_scale_10000.png",
+                    "bench_rust_usage_10000.png",
+                    "bench_rust_usage_log_scale_10000.png",
+                ],
+            )
+            for path in written:
+                self.assertEqual(path.read_bytes()[:8], b"\x89PNG\r\n\x1a\n")
+
+
+class CommandLine(unittest.TestCase):
+    def test_the_readme_is_updated(self):
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            (root / "results").mkdir()
+            write_results(root / "results", BOTH)
+            readme = root / "README.md"
+            readme.write_text(f"# Title\n\n{report.START_MARKER}\n{report.END_MARKER}\n", encoding="utf-8")
+            with contextlib.redirect_stdout(io.StringIO()) as output:
+                report.main([str(root / "results"), "--readme", str(readme)])
+            self.assertIn("### Rust", output.getvalue())
+            self.assertIn("| Set Contains |", readme.read_text(encoding="utf-8"))
 
 
 if __name__ == "__main__":
