@@ -84,8 +84,8 @@ dependencies of the benchmarks and of the experiments, the Rust toolchain of
 `rust-toolchain.toml` and the .NET SDK of `csharp/global.json` after a cooldown
 of seven days. `Directory.Packages.props` holds the NuGet versions of every C#
 project, including the transitive packages that it raises; restore with
-`--force-evaluate` after changing it to regenerate the lockfiles. When the
-Rust toolchain changes, update the `toolchain` inputs of the workflows too.
+`--force-evaluate` after changing it to regenerate the lockfiles. The
+workflows install the Rust toolchain of `rust-toolchain.toml` with rustup.
 `AutoMerge.yml` enables auto-merge of the patch and minor updates, which
 merges them once CI passes; it fails with an explicit error until
 **Settings > General > Pull Requests > Allow auto-merge** is enabled. The

@@ -6,9 +6,9 @@ on:
     - cron: '17 4 * * 1'
   push:
     branches: [main]
-    paths: ['**/Cargo.toml', '**/Cargo.lock', '**/*.csproj', 'Directory.Packages.props', 'csharp/global.json', 'scripts/requirements*.txt', 'scripts/audit_dotnet.py', '.github/workflows/dependencies.yml']
+    paths: ['**/Cargo.toml', '**/Cargo.lock', '**/*.csproj', 'Directory.Packages.props', 'csharp/global.json', 'rust-toolchain.toml', 'scripts/requirements*.txt', 'scripts/audit_dotnet.py', '.github/workflows/dependencies.yml']
   pull_request:
-    paths: ['**/Cargo.toml', '**/Cargo.lock', '**/*.csproj', 'Directory.Packages.props', 'csharp/global.json', 'scripts/requirements*.txt', 'scripts/audit_dotnet.py', '.github/workflows/dependencies.yml']
+    paths: ['**/Cargo.toml', '**/Cargo.lock', '**/*.csproj', 'Directory.Packages.props', 'csharp/global.json', 'rust-toolchain.toml', 'scripts/requirements*.txt', 'scripts/audit_dotnet.py', '.github/workflows/dependencies.yml']
 
 permissions:
   contents: read
@@ -30,9 +30,8 @@ jobs:
           python-version: '3.15'
       - run: python -m pip install pip-audit==2.10.1
       - run: pip-audit -r scripts/requirements.txt -r scripts/requirements-ci.txt
-      - uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
-        with:
-          toolchain: '1.99.1'
+      - name: Install the Rust toolchain of rust-toolchain.toml
+        run: rustup toolchain install --no-self-update
       - run: cargo install cargo-audit --version 0.22.2 --locked
       - name: Audit every Rust dependency tree
         run: |
