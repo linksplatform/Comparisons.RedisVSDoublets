@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "dependencies": {
     "net10.0": {
       "Platform.Data.Doublets": {
@@ -189,14 +189,6 @@
           "Platform.Interfaces": "0.5.0"
         }
       },
-      "Platform.Unsafe": {
-        "type": "Transitive",
-        "resolved": "0.6.1",
-        "contentHash": "GbKgPC7lfw+q2GqQEch0NSxHOZXxoLTj3ChjdRZIQBvZnGWzYH6nat8glfTJseOmgdabIxlwogFECoai0O3akA==",
-        "dependencies": {
-          "Platform.Numbers": "0.7.0"
-        }
-      },
       "RESPite": {
         "type": "Transitive",
         "resolved": "3.4.20",
@@ -206,6 +198,15 @@
         "type": "Transitive",
         "resolved": "10.0.13",
         "contentHash": "ZlcywyQ7FJmgOV2nctdfOEPGS0kRK8T2CdOoPr6F4HPYpmjSo6GQfj3yTyOzNO6B+2U84/JKSPkJJMWqLmVsMw=="
+      },
+      "Platform.Unsafe": {
+        "type": "CentralTransitive",
+        "requested": "[0.6.2, )",
+        "resolved": "0.6.2",
+        "contentHash": "7eIThBIcGEqZUHCCH3KclAep9rAv2DZUAymW9v5Pkfhms4xo1Cv5P0DvxATw4Xc4QMLoJrGBMc0thURn/lfyqQ==",
+        "dependencies": {
+          "Platform.Numbers": "0.9.0"
+        }
       }
     }
   }

@@ -129,13 +129,13 @@ LANGUAGES = {
         [
             (
                 "StackExchange.Redis",
-                "csharp/RedisVSDoublets/RedisVSDoublets.csproj",
-                r'Include="StackExchange\.Redis" Version="([^"]+)"',
+                "csharp/RedisVSDoublets/packages.lock.json",
+                r'"StackExchange\.Redis": {\s*"type": "Direct",\s*"requested": "[^"]*",\s*"resolved": "([^"]+)"',
             ),
             (
                 "Platform.Data.Doublets",
-                "csharp/RedisVSDoublets/RedisVSDoublets.csproj",
-                r'Include="Platform\.Data\.Doublets" Version="([^"]+)"',
+                "csharp/RedisVSDoublets/packages.lock.json",
+                r'"Platform\.Data\.Doublets": {\s*"type": "Direct",\s*"requested": "[^"]*",\s*"resolved": "([^"]+)"',
             ),
         ],
     ),

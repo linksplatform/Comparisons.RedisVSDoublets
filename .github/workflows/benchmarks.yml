@@ -3,9 +3,9 @@ name: Benchmarks
 on:
   push:
     branches: [main]
-    paths: ['rust/**', 'csharp/**', 'redis/**', 'scripts/**', 'rust-toolchain.toml', 'pyproject.toml', '.github/workflows/benchmarks.yml']
+    paths: ['rust/**', 'csharp/**', 'Directory.Packages.props', 'redis/**', 'scripts/**', 'rust-toolchain.toml', 'pyproject.toml', '.github/workflows/benchmarks.yml']
   pull_request:
-    paths: ['rust/**', 'csharp/**', 'redis/**', 'scripts/**', 'rust-toolchain.toml', 'pyproject.toml', '.github/workflows/benchmarks.yml']
+    paths: ['rust/**', 'csharp/**', 'Directory.Packages.props', 'redis/**', 'scripts/**', 'rust-toolchain.toml', 'pyproject.toml', '.github/workflows/benchmarks.yml']
   workflow_dispatch:
     inputs:
       backgrounds:
@@ -38,9 +38,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.13'
+          python-version: '3.15'
       - run: pip install -r scripts/requirements.txt
       - run: python -m unittest discover -s scripts -v
       - name: Validate the sizes
@@ -96,11 +96,11 @@ jobs:
         with:
           persist-credentials: false
       - if: matrix.language == 'rust'
-        uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
+        uses: dtolnay/rust-toolchain@b725eda525362e7cf34af9a7243cac1e3f01a7ec # stable
         with:
           toolchain: '1.99.1'
       - if: matrix.language == 'rust'
-        uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+        uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: rust
           save-if: ${{ github.ref == 'refs/heads/main' }}
@@ -160,9 +160,9 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.13'
+          python-version: '3.15'
       - run: pip install -r scripts/requirements.txt
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:
@@ -199,9 +199,9 @@ jobs:
         with:
           ref: main
           persist-credentials: false
-      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7
         with:
-          python-version: '3.13'
+          python-version: '3.15'
       - run: pip install -r scripts/requirements.txt
       - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8
         with:

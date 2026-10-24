@@ -13,8 +13,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="Platform.Data.Doublets" Version="0.18.1" />
-    <PackageReference Include="StackExchange.Redis" Version="3.4.20" />
+    <PackageReference Include="Platform.Data.Doublets" />
+    <PackageReference Include="StackExchange.Redis" />
   </ItemGroup>
 
   <ItemGroup>
