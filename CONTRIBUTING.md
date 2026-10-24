@@ -8,7 +8,7 @@ have their own validation workflow (`CI quality`).
 ## Local checks
 
 Use the SDK from `csharp/global.json`, the Rust toolchain from
-`rust-toolchain.toml`, Python 3.13 or later, Docker for Redis and actionlint,
+`rust-toolchain.toml`, Python 3.15 or later, Docker for Redis and actionlint,
 and Node.js for the Markdown and secret checks.
 
 The tests empty the Redis database that `REDIS_URL` points to (`FLUSHDB`), so

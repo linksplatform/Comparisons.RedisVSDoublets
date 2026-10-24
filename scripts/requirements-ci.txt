@@ -1,4 +1,4 @@
-ruff==0.17.1
+ruff==0.17.2
 mypy==2.4.0
 bandit==1.9.4
 zizmor==1.31.1
