@@ -1,0 +1,66 @@
+auto-merge	UNKNOWN STEP	﻿2026-10-24T05:46:07.7256583Z Current runner version: '2.338.0'
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7276981Z ##[group]Runner Image Provisioner
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7277797Z Hosted Compute Agent
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7278299Z Version: 20261012.601
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7279044Z Commit: f3dc54e1fb89da6852db922499a0233137369e1d
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7279809Z Build Date: 2026-10-12T17:48:21Z
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7280364Z Worker ID: {7db52857-576f-4617-b2e6-0a3a53df7e31}
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7280946Z Region: centralus
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7281461Z Cloud: Azure
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7281906Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7283085Z ##[group]Operating System
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7283653Z Ubuntu
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7284102Z 24.04.5
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7284684Z LTS
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7285116Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7285598Z ##[group]Runner Image
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7286114Z Image: ubuntu-24.04
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7286612Z Version: 20261012.334.1
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7287664Z Included Software: https://github.com/actions/runner-images/blob/ubuntu24/20261012.334/images/ubuntu/Ubuntu2404-Readme.md
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7289030Z Image Release: https://github.com/actions/runner-images/releases/tag/ubuntu24%2F20261012.334
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7289830Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7290888Z ##[group]GITHUB_TOKEN Permissions
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7292368Z Contents: write
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7292861Z Metadata: read
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7293424Z PullRequests: write
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7293964Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7295647Z Secret source: Actions
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7296391Z Cache mode: read
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.7296922Z Prepare workflow directory
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.8733028Z Prepare all required actions
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:07.8788001Z Getting action download info
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.0755685Z Download action repository 'dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98' (SHA:25dd0e34f4fe68f24cc83900b1fe3fe149efef98)
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5247912Z Complete job name: auto-merge
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5915436Z ##[group]Run dependabot/fetch-metadata@25dd0e34f4fe68f24cc83900b1fe3fe149efef98
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5916318Z with:
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5919399Z   github-token: ***
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5919812Z   skip-commit-verification: false
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5920252Z   skip-verification: false
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.5920787Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9856405Z Parsing Dependabot metadata
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9920886Z ##[group]Outputting metadata for 1 updated dependency
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9921880Z outputs.dependency-names: doublets
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9922635Z outputs.dependency-type: direct:production
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9923493Z outputs.update-type: version-update:semver-minor
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9924456Z outputs.directory: /experiments/rust-external-references
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9925343Z outputs.package-ecosystem: cargo
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9926034Z outputs.target-branch: main
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9926704Z outputs.previous-version: 0.5.0
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9927489Z outputs.new-version: 0.8.0
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9928141Z outputs.compatibility-score: 0
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9929005Z outputs.maintainer-changes: false
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9929704Z outputs.dependency-group: 
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9930450Z outputs.alert-state: 
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9931037Z outputs.ghsa-id: 
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9931597Z outputs.cvss: 0
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:08.9932579Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0256781Z ##[group]Run gh pr merge --auto --squash "$PR_URL"
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0257414Z ^[[36;1mgh pr merge --auto --squash "$PR_URL"^[[0m
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0507821Z shell: /usr/bin/bash -e {0}
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0508290Z env:
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0511484Z   GH_TOKEN: ***
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0512027Z   PR_URL: https://github.com/linksplatform/Comparisons.RedisVSDoublets/pull/6
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:09.0512630Z ##[endgroup]
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:11.3653523Z GraphQL: Auto merge is not allowed for this repository (enablePullRequestAutoMerge)
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:11.3680572Z ##[error]Process completed with exit code 1.
+auto-merge	UNKNOWN STEP	2026-10-24T05:46:11.3761730Z Cleaning up orphan processes

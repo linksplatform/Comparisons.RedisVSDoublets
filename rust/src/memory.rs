@@ -1,4 +1,4 @@
-//! Works around a `doublets` 0.5.0 and `platform-mem` 0.3.0 mismatch: stores take the slice returned by
+//! Works around a `doublets` 0.5.0 to 0.8.0 and `platform-mem` 0.3.0 mismatch: stores take the slice returned by
 //! `RawMem::grow` for their whole memory, but the memories return only the grown part. A fresh store then
 //! sees 2^20 − 8,192 = 1,040,384 links of its 2^20 and panics with "index out of bounds" when it creates
 //! more, and any later growth would leave it with an empty memory. [`Whole`] returns the whole memory.

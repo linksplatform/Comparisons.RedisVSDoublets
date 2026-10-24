@@ -1,4 +1,4 @@
-//! Differential check of the doublets 0.5.0 stores with external references (raw numbers):
+//! Differential check of the doublets stores with external references (raw numbers):
 //! random creates, updates and deletes of links, compared after every step with a plain map.
 //! Prints the first mismatch of each store.
 //!

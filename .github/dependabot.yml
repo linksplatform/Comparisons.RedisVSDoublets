@@ -2,6 +2,8 @@ version: 2
 updates:
 - package-ecosystem: nuget
   directories:
+    # Directory.Packages.props holds the versions of every C# project.
+    - "/"
     - "/csharp"
     - "/experiments/csharp-external-references"
     - "/experiments/csharp-usage-index-trees"
@@ -14,6 +16,8 @@ updates:
   directories:
     - "/rust"
     - "/experiments/rust-external-references"
+    - "/experiments/rust-split-internal-references"
+    - "/experiments/rust-plain-memory-capacity"
   schedule:
     interval: daily
   open-pull-requests-limit: 10
@@ -27,6 +31,24 @@ updates:
     default-days: 7
 - package-ecosystem: pip
   directory: "/scripts"
+  schedule:
+    interval: weekly
+  cooldown:
+    default-days: 7
+- package-ecosystem: rust-toolchain
+  directory: "/"
+  schedule:
+    interval: weekly
+  cooldown:
+    default-days: 7
+- package-ecosystem: dotnet-sdk
+  directory: "/csharp"
+  schedule:
+    interval: weekly
+  cooldown:
+    default-days: 7
+- package-ecosystem: pre-commit
+  directory: "/"
   schedule:
     interval: weekly
   cooldown:

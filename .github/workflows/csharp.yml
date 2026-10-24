@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
   push:
     branches: [main]
-    paths: ['csharp/**', 'redis/**', 'experiments/csharp-*/**', '.github/workflows/csharp.yml']
+    paths: ['csharp/**', 'Directory.Packages.props', 'redis/**', 'experiments/csharp-*/**', '.github/workflows/csharp.yml']
   pull_request:
-    paths: ['csharp/**', 'redis/**', 'experiments/csharp-*/**', '.github/workflows/csharp.yml']
+    paths: ['csharp/**', 'Directory.Packages.props', 'redis/**', 'experiments/csharp-*/**', '.github/workflows/csharp.yml']
 
 permissions:
   contents: read

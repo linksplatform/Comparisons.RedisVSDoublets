@@ -31,4 +31,14 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.DEPENDABOT_AUTO_MERGE_TOKEN || github.token }}
           PR_URL: ${{ github.event.pull_request.html_url }}
-        run: gh pr merge --auto --squash "$PR_URL"
+        run: |
+          # GitHub rejects auto-merge unless the repository allows it, and a
+          # workflow cannot change that setting.
+          if ! output=$(gh pr merge --auto --squash "$PR_URL" 2>&1); then
+            echo "$output"
+            if grep -q "Auto merge is not allowed" <<< "$output"; then
+              echo "::error::Auto-merge is disabled for this repository. A maintainer must enable Settings > General > Pull Requests > Allow auto-merge, or merge $PR_URL manually once CI passes."
+            fi
+            exit 1
+          fi
+          echo "$output"

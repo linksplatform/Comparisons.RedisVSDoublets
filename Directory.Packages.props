@@ -1,0 +1,27 @@
+<Project>
+
+  <!--
+    The NuGet versions of every C# project of the repository (the benchmarks,
+    their tests and the experiments), so a package has one version everywhere.
+    Transitive pinning raises the packages below that the direct dependencies
+    only require at an older version.
+  -->
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageVersion Include="Platform.Data.Doublets" Version="0.18.1" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.20" />
+    <PackageVersion Include="xunit.v3" Version="4.0.2" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Transitive: Platform.Data.Doublets 0.18.1 requires 0.6.1. -->
+    <PackageVersion Include="Platform.Unsafe" Version="0.6.2" />
+    <!-- Transitive: xunit.v3.common 4.0.2 requires 6.0.0. -->
+    <PackageVersion Include="Microsoft.Bcl.AsyncInterfaces" Version="10.0.13" />
+  </ItemGroup>
+
+</Project>

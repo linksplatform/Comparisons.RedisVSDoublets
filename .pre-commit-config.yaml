@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.16.10
+    rev: v0.17.2
     hooks:
       - id: ruff-check
         args: [--fix]
@@ -17,7 +17,7 @@ repos:
         pass_filenames: false
       - id: rustfmt-experiments
         name: Rust experiment formatting
-        entry: cargo fmt --manifest-path experiments/rust-external-references/Cargo.toml --check
+        entry: bash -c 'for manifest in experiments/rust-*/Cargo.toml; do cargo fmt --manifest-path "$manifest" --check || exit 1; done'
         language: system
         files: ^experiments/rust-.*\.rs$
         pass_filenames: false

@@ -8,7 +8,7 @@ have their own validation workflow (`CI quality`).
 ## Local checks
 
 Use the SDK from `csharp/global.json`, the Rust toolchain from
-`rust-toolchain.toml`, Python 3.13 or later, Docker for Redis and actionlint,
+`rust-toolchain.toml`, Python 3.15 or later, Docker for Redis and actionlint,
 and Node.js for the Markdown and secret checks.
 
 The tests empty the Redis database that `REDIS_URL` points to (`FLUSHDB`), so
@@ -79,9 +79,16 @@ fails with an explicit error that says what to do.
 
 ## Dependencies
 
-Dependabot updates the NuGet, Cargo, Python and GitHub Actions dependencies of
-the benchmarks and of the experiments after a cooldown of seven days, and
-`AutoMerge.yml` merges its patch and minor updates once CI passes. The
+Dependabot updates the NuGet, Cargo, Python, GitHub Actions and pre-commit
+dependencies of the benchmarks and of the experiments, the Rust toolchain of
+`rust-toolchain.toml` and the .NET SDK of `csharp/global.json` after a cooldown
+of seven days. `Directory.Packages.props` holds the NuGet versions of every C#
+project, including the transitive packages that it raises; restore with
+`--force-evaluate` after changing it to regenerate the lockfiles. The
+workflows install the Rust toolchain of `rust-toolchain.toml` with rustup.
+`AutoMerge.yml` enables auto-merge of the patch and minor updates, which
+merges them once CI passes; it fails with an explicit error until
+**Settings > General > Pull Requests > Allow auto-merge** is enabled. The
 `Dependencies` workflow audits Python, every committed Rust lockfile and the
 direct and transitive NuGet packages weekly and on relevant changes. Run
 `pip-audit -r scripts/requirements.txt -r scripts/requirements-ci.txt`,

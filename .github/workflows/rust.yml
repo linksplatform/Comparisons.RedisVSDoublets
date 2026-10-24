@@ -37,24 +37,28 @@ jobs:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
         with:
           persist-credentials: false
-      - uses: dtolnay/rust-toolchain@89b12181fb390509a0842a86cc55eeb8eb928c1d # stable
-        with:
-          components: rustfmt, clippy
-          toolchain: '1.98.1'
-      - uses: Swatinem/rust-cache@6323deb102c322ba6fcbdcafc7e3dddab59af2b6 # v2
+      - name: Install the Rust toolchain of rust-toolchain.toml
+        run: rustup toolchain install --no-self-update
+      - uses: Swatinem/rust-cache@d1527c8f67ef9af357290475d4af4b0fab8f12e0 # v2
         with:
           workspaces: |
             rust
             experiments/rust-external-references
+            experiments/rust-split-internal-references
+            experiments/rust-plain-memory-capacity
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Format every Rust crate
         run: |
           cargo fmt --check
           cargo fmt --check --manifest-path ../experiments/rust-external-references/Cargo.toml
+          cargo fmt --check --manifest-path ../experiments/rust-split-internal-references/Cargo.toml
+          cargo fmt --check --manifest-path ../experiments/rust-plain-memory-capacity/Cargo.toml
       - name: Clippy every Rust crate (warnings are errors)
         run: |
           cargo clippy --locked --release --all-targets -- -D warnings
           cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-external-references/Cargo.toml -- -D warnings
+          cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-split-internal-references/Cargo.toml -- -D warnings
+          cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-plain-memory-capacity/Cargo.toml -- -D warnings
       - name: Test (all stores give the same results, including Redis in every mode)
         run: cargo test --locked --release -- --include-ignored
       - name: Build the benchmarks

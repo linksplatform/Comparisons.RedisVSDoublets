@@ -92,8 +92,8 @@ SUITES = [
         ],
         [DOUBLETS_UNITED, DOUBLETS_SPLIT],
     ),
-    # The split store of doublets 0.5.0 loses links with external references
-    # (see experiments/README.md), so the usage benchmarks use the united store.
+    # The C# split store loses links with external references (see
+    # experiments/README.md), so the usage benchmarks use the united store.
     Suite(
         "usage",
         "Typical Redis usage",
@@ -129,13 +129,13 @@ LANGUAGES = {
         [
             (
                 "StackExchange.Redis",
-                "csharp/RedisVSDoublets/RedisVSDoublets.csproj",
-                r'Include="StackExchange\.Redis" Version="([^"]+)"',
+                "csharp/RedisVSDoublets/packages.lock.json",
+                r'"StackExchange\.Redis": {\s*"type": "Direct",\s*"requested": "[^"]*",\s*"resolved": "([^"]+)"',
             ),
             (
                 "Platform.Data.Doublets",
-                "csharp/RedisVSDoublets/RedisVSDoublets.csproj",
-                r'Include="Platform\.Data\.Doublets" Version="([^"]+)"',
+                "csharp/RedisVSDoublets/packages.lock.json",
+                r'"Platform\.Data\.Doublets": {\s*"type": "Direct",\s*"requested": "[^"]*",\s*"resolved": "([^"]+)"',
             ),
         ],
     ),

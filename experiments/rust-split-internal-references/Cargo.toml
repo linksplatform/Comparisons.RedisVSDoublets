@@ -1,0 +1,10 @@
+[package]
+name = "rust-split-internal-references"
+version = "0.1.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+doublets = "0.8.0"
+
+[workspace]

@@ -3,8 +3,8 @@
 # per iteration) of the in-memory Doublets stores with bounded memory, without
 # Redis. Only the groups that create links run (Create of the links benchmarks,
 # KeyValue_Set and Queue_Push of the usage benchmarks), with the usual sampling,
-# so every store grows past the 1,040,384 links at which doublets 0.5.0 failed
-# before rust/src/memory.rs.
+# so every store grows past the 1,040,384 links at which doublets 0.5.0 to 0.8.0 fail
+# without rust/src/memory.rs.
 # Usage: experiments/check-full-size.sh > experiments/logs/check-full-size.log
 set -euo pipefail
 cd "$(dirname "$0")/.."

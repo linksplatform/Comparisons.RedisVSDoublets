@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "dependencies": {
     "net10.0": {
       "xunit.v3": {
@@ -15,11 +15,6 @@
         "type": "Transitive",
         "resolved": "2.23.0",
         "contentHash": "nWArUZTdU7iqZLycLKWe0TDms48KKGE6pONH2terYNa8REXiqixrMOkf1sk5DHGMaUTqONU2YkS4SAXBhLStgw=="
-      },
-      "Microsoft.Bcl.AsyncInterfaces": {
-        "type": "Transitive",
-        "resolved": "6.0.0",
-        "contentHash": "UcSjPsst+DfAdJGVDsu346FX0ci0ah+lw3WRtn18NUwEqRt70HaOQ7lI72vy3+1LxtqI3T5GWwV39rQSrCzAeg=="
       },
       "Microsoft.Extensions.DependencyInjection.Abstractions": {
         "type": "Transitive",
@@ -105,20 +100,6 @@
           "Platform.Numbers": "0.9.0",
           "Platform.Setters": "0.5.0",
           "Platform.Threading": "0.4.0"
-        }
-      },
-      "Platform.Data.Doublets": {
-        "type": "Transitive",
-        "resolved": "0.18.1",
-        "contentHash": "b6p7GgLDonEnRdhuy3Xsn/N5g5Qq+aivapAlkFH/Mk/MDTDiSJ0C1wnViC4Ff9/d6IXfmh2Sv/TeGIkyKbTOTw==",
-        "dependencies": {
-          "Platform.Collections.Methods": "0.7.3",
-          "Platform.Data": "0.16.1",
-          "Platform.Data.Doublets.FFI": "0.9.0",
-          "Platform.Memory": "0.4.1",
-          "Platform.Random": "0.3.0",
-          "Platform.Singletons": "0.3.0",
-          "Platform.Timestamps": "0.3.0"
         }
       },
       "Platform.Data.Doublets.FFI": {
@@ -231,28 +212,10 @@
           "Platform.Interfaces": "0.5.0"
         }
       },
-      "Platform.Unsafe": {
-        "type": "Transitive",
-        "resolved": "0.6.1",
-        "contentHash": "GbKgPC7lfw+q2GqQEch0NSxHOZXxoLTj3ChjdRZIQBvZnGWzYH6nat8glfTJseOmgdabIxlwogFECoai0O3akA==",
-        "dependencies": {
-          "Platform.Numbers": "0.7.0"
-        }
-      },
       "RESPite": {
         "type": "Transitive",
         "resolved": "3.4.20",
         "contentHash": "MRBfXbMStwHGzM2UsbWsmh7mF/WDh4kNonrhOj5HLfkVp+PIstu4MuElusyJLHu5MkOIQj9+u1xWQ5YeJTveHQ=="
-      },
-      "StackExchange.Redis": {
-        "type": "Transitive",
-        "resolved": "3.4.20",
-        "contentHash": "eIPMxCzqw3BMWp1GOOcafs7RPrScSHiCT9b1DIEJ49h9b7tHBw21+rN6gLWdQmJzvR+Wzwx3obmCp3FpgKuUSg==",
-        "dependencies": {
-          "Microsoft.Extensions.Logging.Abstractions": "10.0.13",
-          "RESPite": "3.4.20",
-          "System.IO.Hashing": "10.0.13"
-        }
       },
       "System.IO.Hashing": {
         "type": "Transitive",
@@ -337,6 +300,47 @@
         "dependencies": {
           "Platform.Data.Doublets": "[0.18.1, )",
           "StackExchange.Redis": "[3.4.20, )"
+        }
+      },
+      "Microsoft.Bcl.AsyncInterfaces": {
+        "type": "CentralTransitive",
+        "requested": "[10.0.13, )",
+        "resolved": "10.0.13",
+        "contentHash": "PEC80XidOaP1vyHWiSIOHOfh6MpkFln/gkLXKaSmjrAdBSwcAaowvOaVBKvnb+HAb2UTGrZqROajIKMVFu2jdw=="
+      },
+      "Platform.Data.Doublets": {
+        "type": "CentralTransitive",
+        "requested": "[0.18.1, )",
+        "resolved": "0.18.1",
+        "contentHash": "b6p7GgLDonEnRdhuy3Xsn/N5g5Qq+aivapAlkFH/Mk/MDTDiSJ0C1wnViC4Ff9/d6IXfmh2Sv/TeGIkyKbTOTw==",
+        "dependencies": {
+          "Platform.Collections.Methods": "0.7.3",
+          "Platform.Data": "0.16.1",
+          "Platform.Data.Doublets.FFI": "0.9.0",
+          "Platform.Memory": "0.4.1",
+          "Platform.Random": "0.3.0",
+          "Platform.Singletons": "0.3.0",
+          "Platform.Timestamps": "0.3.0"
+        }
+      },
+      "Platform.Unsafe": {
+        "type": "CentralTransitive",
+        "requested": "[0.6.2, )",
+        "resolved": "0.6.2",
+        "contentHash": "7eIThBIcGEqZUHCCH3KclAep9rAv2DZUAymW9v5Pkfhms4xo1Cv5P0DvxATw4Xc4QMLoJrGBMc0thURn/lfyqQ==",
+        "dependencies": {
+          "Platform.Numbers": "0.9.0"
+        }
+      },
+      "StackExchange.Redis": {
+        "type": "CentralTransitive",
+        "requested": "[3.4.20, )",
+        "resolved": "3.4.20",
+        "contentHash": "eIPMxCzqw3BMWp1GOOcafs7RPrScSHiCT9b1DIEJ49h9b7tHBw21+rN6gLWdQmJzvR+Wzwx3obmCp3FpgKuUSg==",
+        "dependencies": {
+          "Microsoft.Extensions.Logging.Abstractions": "10.0.13",
+          "RESPite": "3.4.20",
+          "System.IO.Hashing": "10.0.13"
         }
       }
     }

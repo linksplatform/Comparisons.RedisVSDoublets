@@ -1,0 +1,11 @@
+doublets 0.8.0, platform-mem 0.3.0:
+
+$ cargo run --release -- united
+panic while creating link 1040384
+thread 'main' panicked at ~/.cargo/registry/src/.../doublets-0.8.0/src/mem/unit/store.rs:153:55:
+Data part should be in data memory
+
+$ cargo run --release -- split
+panic while creating link 1040384
+thread 'main' panicked at ~/.cargo/registry/src/.../doublets-0.8.0/src/mem/split/store.rs:172:14:
+Index part should be in index memory
