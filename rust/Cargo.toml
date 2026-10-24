@@ -14,10 +14,10 @@ harness = false
 doublets = "0.8.0"
 # The synchronous client of redis-rs: every operation waits for its reply, as
 # the operations of the doublets stores do. Only the commands are needed.
-redis = { version = "1.8", default-features = false }
+redis = { version = "1.8.0", default-features = false }
 
 [dev-dependencies]
-criterion = "0.8"
+criterion = "0.8.2"
 
 [profile.release]
 lto = true
