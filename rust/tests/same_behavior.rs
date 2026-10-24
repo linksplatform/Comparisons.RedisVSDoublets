@@ -2,13 +2,12 @@
 //! operations used by the benchmarks, and that undoing an operation (as the
 //! benchmarks do after every iteration) restores the background data.
 //!
-//! - The links stores run the operations of the links benchmarks, and the
-//!   unit store and Redis also run random sequences of changes with general
-//!   links, compared with a model after every commit. The split store of
-//!   doublets 0.5.0 does not find links with `source != target` by
-//!   `[*, source, *]` or `[*, source, target]` (see
-//!   `experiments/rust-external-references`), so it only gets point links
-//!   and links with `source = target = 0`, as in the benchmarks.
+//! - The links stores run the operations of the links benchmarks and random
+//!   sequences of changes with general links, compared with a model after
+//!   every commit. The split store of doublets 0.8.0 loses a link from its
+//!   indexes when the link refers to an id that is only created later (see
+//!   `experiments/rust-split-internal-references`), so its links refer to
+//!   existing links only and a link that others refer to is not deleted.
 //! - The [`Usage`] stores run the work of every usage benchmark and some edge
 //!   cases, compared with a model of the Redis commands.
 //!
@@ -195,7 +194,7 @@ fn doublets_united_volatile() {
     let mut store = DoubletsUnitedVolatile::setup(()).unwrap();
     check_links(&mut store);
     check_missing(&mut store, false);
-    check_random(&mut store);
+    check_random(&mut store, References::Any);
 }
 
 #[test]
@@ -203,6 +202,7 @@ fn doublets_split_volatile() {
     let mut store = DoubletsSplitVolatile::setup(()).unwrap();
     check_links(&mut store);
     check_missing(&mut store, false);
+    check_random(&mut store, References::Existing);
 }
 
 /// All modes share one database, so they run one after another in one test.
@@ -215,7 +215,7 @@ fn redis_links() {
         assert_eq!(store.mode(), mode);
         check_links(&mut store);
         check_missing(&mut store, mode != Mode::NonTransaction);
-        check_random(&mut store);
+        check_random(&mut store, References::Any);
         check_sink(&mut store);
     }
 }
@@ -288,6 +288,12 @@ impl LinksModel {
         self.links.values().any(|&pair| pair == (source, target))
     }
 
+    fn refers_to(&self, id: usize) -> bool {
+        self.links
+            .iter()
+            .any(|(&other, &(source, target))| other != id && (source == id || target == id))
+    }
+
     fn next_id(&self) -> usize {
         self.links.keys().next_back().map_or(1, |id| id + 1)
     }
@@ -333,13 +339,22 @@ impl LinksModel {
     }
 }
 
+/// The ids that the sources and targets of [`check_random`] refer to.
+#[derive(Clone, Copy)]
+enum References {
+    /// Any existing link and the id of the next link.
+    Any,
+    /// Existing links only, and a link that others refer to is not deleted.
+    Existing,
+}
+
 /// Runs random creates, updates and deletes in `begin`/`commit` and compares
 /// all links and the results of all queries with a model after every commit.
 ///
 /// The pairs stay unique (doublets treats a pair as unique) and only the link
 /// with the highest id is deleted, so both databases assign the same ids (see
 /// [`redis_vs_doublets::redis_impl`]).
-fn check_random<B: Benched + Doublets<usize>>(benched: &mut B) {
+fn check_random<B: Benched + Doublets<usize>>(benched: &mut B, references: References) {
     let mut store = benched.fork(BACKGROUND).unwrap();
     let mut model = LinksModel::default();
     model
@@ -350,7 +365,11 @@ fn check_random<B: Benched + Doublets<usize>>(benched: &mut B) {
         store.begin().unwrap();
         for _ in 0..10 {
             let next = model.next_id();
-            let (source, target) = (1 + random.below(next), 1 + random.below(next));
+            let ids = match references {
+                References::Any => next,
+                References::Existing => next - 1,
+            };
+            let (source, target) = (1 + random.below(ids), 1 + random.below(ids));
             let pair_is_free = !model.has_pair(source, target);
             match random.below(5) {
                 0 => {
@@ -366,7 +385,9 @@ fn check_random<B: Benched + Doublets<usize>>(benched: &mut B) {
                     store.update(id, source, target).unwrap();
                     model.links.insert(id, (source, target));
                 }
-                4 if next > 1 => {
+                4 if next > 1
+                    && (matches!(references, References::Any) || !model.refers_to(next - 1)) =>
+                {
                     store.delete(next - 1).unwrap();
                     model.links.remove(&(next - 1));
                 }

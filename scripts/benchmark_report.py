@@ -92,8 +92,8 @@ SUITES = [
         ],
         [DOUBLETS_UNITED, DOUBLETS_SPLIT],
     ),
-    # The split store of doublets 0.5.0 loses links with external references
-    # (see experiments/README.md), so the usage benchmarks use the united store.
+    # The C# split store loses links with external references (see
+    # experiments/README.md), so the usage benchmarks use the united store.
     Suite(
         "usage",
         "Typical Redis usage",

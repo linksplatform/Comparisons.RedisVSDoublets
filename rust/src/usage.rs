@@ -44,9 +44,10 @@
 //! of the updates keeps every pair unique at every step: a new node is created
 //! as a point and gets its pair only when no other link can have it.
 //!
-//! Only the united store is used: the split store of doublets 0.5.0 does not
-//! find links whose source is a link and whose target is a raw number, such as
-//! the set members (see `experiments/rust-external-references`).
+//! Only the united store is used, as in C#: the `SplitMemoryLinks` of
+//! Platform.Data.Doublets 0.18.1 does not find links whose source is a link
+//! and whose target is a raw number, such as the set members, and neither did
+//! the split store of doublets 0.5.0 (see `experiments/README.md`).
 
 use std::hint::black_box;
 

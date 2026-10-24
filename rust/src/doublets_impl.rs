@@ -84,7 +84,7 @@
 //! A store reserves space for `2^20` array elements in steps: first `8192`,
 //! then the rest, and later more. `platform-mem` 0.3.0 returns only the newly
 //! added part of the memory from every step after the first one, and a
-//! doublets 0.5.0 store uses that part as its whole array, so without a
+//! doublets store (0.5.0 to 0.8.0) uses that part as its whole array, so without a
 //! workaround a store holds at most `2^20 - 8192 - 1` links. The stores of the
 //! benchmarks get their memory through [`Whole`](crate::Whole), which returns
 //! the whole memory, so they grow beyond `2^20` links (checked by

@@ -46,15 +46,21 @@ jobs:
           workspaces: |
             rust
             experiments/rust-external-references
+            experiments/rust-split-internal-references
+            experiments/rust-plain-memory-capacity
           save-if: ${{ github.ref == 'refs/heads/main' }}
       - name: Format every Rust crate
         run: |
           cargo fmt --check
           cargo fmt --check --manifest-path ../experiments/rust-external-references/Cargo.toml
+          cargo fmt --check --manifest-path ../experiments/rust-split-internal-references/Cargo.toml
+          cargo fmt --check --manifest-path ../experiments/rust-plain-memory-capacity/Cargo.toml
       - name: Clippy every Rust crate (warnings are errors)
         run: |
           cargo clippy --locked --release --all-targets -- -D warnings
           cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-external-references/Cargo.toml -- -D warnings
+          cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-split-internal-references/Cargo.toml -- -D warnings
+          cargo clippy --locked --release --all-targets --manifest-path ../experiments/rust-plain-memory-capacity/Cargo.toml -- -D warnings
       - name: Test (all stores give the same results, including Redis in every mode)
         run: cargo test --locked --release -- --include-ignored
       - name: Build the benchmarks

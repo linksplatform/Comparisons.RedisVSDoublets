@@ -1,3 +1,10 @@
+doublets 0.8.0 (cargo run --release; cargo run --release -- mixed):
+united (external only): OK (step 5000)
+split (external only): OK (step 5000)
+united (internal and external): OK (step 5000)
+split (internal and external): OK (step 5000)
+
+doublets 0.5.0, before the update to 0.8.0:
 united (external only): OK (step 5000)
 split (external only): OK (step 5000)
 united (internal and external): OK (step 5000)

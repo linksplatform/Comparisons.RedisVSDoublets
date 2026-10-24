@@ -15,7 +15,7 @@ Doublets работает в памяти, без файлов, в процес�
 
 | Язык | Клиент Redis | Doublets |
 | --- | --- | --- |
-| Rust | [redis-rs](https://crates.io/crates/redis) (синхронный) | [doublets](https://crates.io/crates/doublets) 0.5.0 |
+| Rust | [redis-rs](https://crates.io/crates/redis) (синхронный) | [doublets](https://crates.io/crates/doublets) 0.8.0 |
 | C# | [StackExchange.Redis](https://www.nuget.org/packages/StackExchange.Redis) | [Platform.Data.Doublets](https://www.nuget.org/packages/Platform.Data.Doublets) 0.18.1 |
 
 ## Бенчмарки
@@ -152,7 +152,7 @@ Doublets хранит числа как внешние ссылки (сырые 
   ключи по связи, поэтому они не работают в Redis Cluster.
 - Бенчмарки и тесты очищают базу данных Redis из `REDIS_URL` (`FLUSHDB`),
   поэтому она должна быть одноразовой.
-- Хранилища doublets 0.5.0 (Rust) отказывают после 1,040,384 связей, потому
+- Хранилища doublets от 0.5.0 до 0.8.0 (Rust) отказывают после 1,040,384 связей, потому
   что берут ту часть памяти, которую возвращает `platform-mem` после её роста;
   бенчмарки оборачивают память в [`memory::Whole`](rust/src/memory.rs),
   который возвращает всю память, а

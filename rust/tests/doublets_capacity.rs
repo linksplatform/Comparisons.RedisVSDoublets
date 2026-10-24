@@ -1,5 +1,5 @@
 //! Checks that the Doublets stores of the benchmarks grow beyond the limit of
-//! doublets 0.5.0 with platform-mem 0.3.0 described in
+//! doublets 0.5.0 to 0.8.0 with platform-mem 0.3.0 described in
 //! `redis_vs_doublets::doublets_impl` (section "Capacity"): without
 //! [`Whole`](redis_vs_doublets::Whole) a store holds at most
 //! `2^20 - 8192 - 1` links.
