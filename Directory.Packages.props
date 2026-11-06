@@ -13,7 +13,7 @@
 
   <ItemGroup>
     <PackageVersion Include="Platform.Data.Doublets" Version="0.18.1" />
-    <PackageVersion Include="StackExchange.Redis" Version="3.4.20" />
+    <PackageVersion Include="StackExchange.Redis" Version="3.4.29" />
     <PackageVersion Include="xunit.v3" Version="4.0.2" />
   </ItemGroup>
 
