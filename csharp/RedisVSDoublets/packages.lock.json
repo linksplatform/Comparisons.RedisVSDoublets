@@ -4,9 +4,9 @@
     "net10.0": {
       "Platform.Data.Doublets": {
         "type": "Direct",
-        "requested": "[0.18.1, )",
-        "resolved": "0.18.1",
-        "contentHash": "b6p7GgLDonEnRdhuy3Xsn/N5g5Qq+aivapAlkFH/Mk/MDTDiSJ0C1wnViC4Ff9/d6IXfmh2Sv/TeGIkyKbTOTw==",
+        "requested": "[0.18.8, )",
+        "resolved": "0.18.8",
+        "contentHash": "q/MQ0GJRyqHxcICMsjwSdd4+7Uph8tOJJxB4XBVY18IVJZTimYH17DrYNOlf5X1t4nnXkhET0FOpmX2q9nBzLw==",
         "dependencies": {
           "Platform.Collections.Methods": "0.7.3",
           "Platform.Data": "0.16.1",
