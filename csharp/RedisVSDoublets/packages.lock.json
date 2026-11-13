@@ -4,17 +4,30 @@
     "net10.0": {
       "Platform.Data.Doublets": {
         "type": "Direct",
-        "requested": "[0.18.1, )",
-        "resolved": "0.18.1",
-        "contentHash": "b6p7GgLDonEnRdhuy3Xsn/N5g5Qq+aivapAlkFH/Mk/MDTDiSJ0C1wnViC4Ff9/d6IXfmh2Sv/TeGIkyKbTOTw==",
+        "requested": "[1.0.0, )",
+        "resolved": "1.0.0",
+        "contentHash": "Dlr7QsS0d2XthTBGS5Lc9aSzBVi2APOpjO0g/kGnUHZILfCJaUtWCuQY6blvaZXo9xQtGj27vUlt/vbzsGgbmA==",
         "dependencies": {
+          "Platform.Collections": "0.4.0",
           "Platform.Collections.Methods": "0.7.3",
+          "Platform.Converters": "0.4.0",
           "Platform.Data": "0.16.1",
           "Platform.Data.Doublets.FFI": "0.9.0",
+          "Platform.Delegates": "0.1.1",
+          "Platform.Disposables": "0.4.0",
+          "Platform.Exceptions": "0.5.0",
+          "Platform.IO": "0.5.1",
+          "Platform.Interfaces": "0.5.0",
           "Platform.Memory": "0.4.1",
+          "Platform.Numbers": "0.9.0",
           "Platform.Random": "0.3.0",
+          "Platform.Ranges": "0.5.0",
+          "Platform.Reflection": "0.7.0",
+          "Platform.Setters": "0.5.0",
           "Platform.Singletons": "0.3.0",
-          "Platform.Timestamps": "0.3.0"
+          "Platform.Threading": "0.5.0",
+          "Platform.Timestamps": "0.3.0",
+          "Platform.Unsafe": "0.6.2"
         }
       },
       "StackExchange.Redis": {
